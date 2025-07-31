@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Calendrier JDR</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    * { box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      margin: 0; 
+      padding: 0; 
+      min-height: 100vh;
+    }
+    #root { 
+      max-width: 1200px; 
+      margin: 0 auto; 
+      background: #fff; 
+      border-radius: 12px; 
+      box-shadow: 0 8px 32px rgba(0,0,0,0.1); 
+      padding: 2rem;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 1rem;
+    }
+    h1, h2, h3 { 
+      color: #2d3748; 
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+    h1 { font-size: 2.5rem; margin-bottom: 2rem; }
+    h2 { font-size: 1.8rem; }
+    h3 { font-size: 1.4rem; }
+    
+    .form-group {
+      margin-bottom: 1.5rem;
+      text-align: center;
+    }
+    
+    input[type="email"], input[type="text"] {
+      width: 100%;
+      max-width: 400px;
+      padding: 12px 16px;
+      font-size: 1rem;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      transition: border-color 0.2s;
+      margin-bottom: 1rem;
+    }
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      margin: 0.5rem;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+    button:disabled {
+      background: #cbd5e0;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    
+    .month-selector {
+      text-align: center;
+      margin: 2rem 0;
+    }
+    .month-nav {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    .month-nav button {
+      background: #667eea;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      padding: 0;
+      font-size: 1.2rem;
+    }
+    .month-display {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #2d3748;
+      min-width: 200px;
+    }
+    
+    .calendar-container {
+      overflow-x: auto;
+      margin: 1rem 0;
+    }
+    .calendar-table {
+      border-collapse: collapse;
+      margin: 0 auto;
+      background: #f7fafc;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .calendar-table th {
+      background: #667eea;
+      color: white;
+      padding: 12px 8px;
+      font-weight: 600;
+      text-align: center;
+      min-width: 80px;
+    }
+    .calendar-table td {
+      padding: 8px;
+      text-align: center;
+      border: 1px solid #e2e8f0;
+      background: white;
+      vertical-align: top;
+      min-height: 120px;
+    }
+    .calendar-table td:hover {
+      background: #f0f4ff;
+    }
+    
+    .day-number {
+      font-weight: bold;
+      color: #2d3748;
+      margin-bottom: 0.5rem;
+      font-size: 1.1rem;
+    }
+    
+    .availability-options {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: stretch;
+    }
+    .availability-options label {
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 4px;
+      transition: all 0.2s;
+      border: 1px solid transparent;
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      justify-content: center;
+    }
+    .availability-options label:hover {
+      background: #f0f4ff;
+      border-color: #667eea;
+    }
+    .availability-options input[type="radio"] {
+      display: none;
+    }
+    .availability-options input[type="radio"]:checked + span {
+      background: #667eea;
+      color: white;
+      border-color: #667eea;
+      font-weight: 600;
+    }
+    
+    .legend {
+      text-align: center;
+      margin: 1rem 0;
+      padding: 1rem;
+      background: #f7fafc;
+      border-radius: 8px;
+    }
+    .legend span {
+      margin: 0 1rem;
+      font-weight: 500;
+    }
+    
+    .admin-table-container {
+      overflow-x: auto;
+      margin: 1rem 0;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .admin-table {
+      border-collapse: collapse;
+      background: white;
+      min-width: 600px;
+    }
+    .admin-table th {
+      background: #667eea;
+      color: white;
+      padding: 12px 8px;
+      font-weight: 600;
+      text-align: center;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .admin-table td {
+      padding: 8px;
+      text-align: center;
+      border: 1px solid #e2e8f0;
+    }
+    .admin-table tr:nth-child(even) {
+      background: #f7fafc;
+    }
+    .player-name {
+      font-weight: 600;
+      color: #2d3748;
+      text-align: left;
+      min-width: 120px;
+    }
+    
+    .status-available { color: #38a169; }
+    .status-maybe { color: #d69e2e; }
+    .status-unavailable { color: #e53e3e; }
+    
+    .actions {
+      text-align: center;
+      margin: 2rem 0;
+    }
+    
+    .admin-panel {
+      background: #f7fafc;
+      border-radius: 8px;
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+    .admin-panel h4 {
+      margin: 0 0 1rem 0;
+      color: #2d3748;
+    }
+    .user-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .user-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem;
+      background: white;
+      border-radius: 4px;
+      border: 1px solid #e2e8f0;
+    }
+    .user-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .user-email {
+      font-size: 0.8rem;
+      color: #718096;
+    }
+    .user-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .user-actions button {
+      padding: 4px 8px;
+      font-size: 0.8rem;
+      margin: 0;
+    }
+    .danger-button {
+      background: #e53e3e !important;
+    }
+    .danger-button:hover {
+      background: #c53030 !important;
+    }
+    .success-button {
+      background: #38a169 !important;
+    }
+    .success-button:hover {
+      background: #2f855a !important;
+    }
+    
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal {
+      background: white;
+      border-radius: 8px;
+      padding: 2rem;
+      max-width: 400px;
+      width: 90%;
+      text-align: center;
+    }
+    .modal h4 {
+      margin: 0 0 1rem 0;
+      color: #2d3748;
+    }
+    .modal-buttons {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      margin-top: 1rem;
+    }
+    
+    @media (max-width: 768px) {
+      #root { 
+        padding: 1rem; 
+        margin: 0;
+        border-radius: 0;
+      }
+      .container { padding: 0.5rem; }
+      h1 { font-size: 2rem; }
+      h2 { font-size: 1.5rem; }
+      .calendar-table th {
+        padding: 6px 4px;
+        font-size: 0.9rem;
+        min-width: 60px;
+      }
+      .calendar-table td {
+        padding: 4px 2px;
+        font-size: 0.8rem;
+        min-height: 100px;
+      }
+      .availability-options label {
+        font-size: 0.7rem;
+        padding: 2px 4px;
+      }
+      .day-number {
+        font-size: 1rem;
+      }
+      .month-display {
+        font-size: 1.2rem;
+        min-width: 150px;
+      }
+      .admin-table {
+        min-width: 400px;
+      }
+      .admin-table th,
+      .admin-table td {
+        padding: 6px 4px;
+        font-size: 0.8rem;
+      }
+      .player-name {
+        min-width: 80px;
+        font-size: 0.9rem;
+      }
+      .user-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+      }
+      .user-actions {
+        justify-content: center;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .calendar-table th {
+        padding: 4px 2px;
+        font-size: 0.8rem;
+        min-width: 50px;
+      }
+      .calendar-table td {
+        padding: 2px 1px;
+        font-size: 0.7rem;
+        min-height: 80px;
+      }
+      .day-number {
+        font-size: 0.9rem;
+      }
+      .availability-options label {
+        font-size: 0.6rem;
+        padding: 1px 2px;
+      }
+      .admin-table {
+        min-width: 300px;
+      }
+      .admin-table th,
+      .admin-table td {
+        padding: 4px 2px;
+        font-size: 0.7rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script>
+    const { useState } = React;
+
+    const fakeDB = {
+      users: [],
+      availabilities: {},
+    };
+
+    const MONTHS = [
+      "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
+      "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
+    ];
+
+    function getDaysInMonth(year, month) {
+      return new Date(year, month + 1, 0).getDate();
+    }
+
+    function LoginPage({ onLogin }) {
+      const [email, setEmail] = useState("");
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (email.trim()) {
+          onLogin(email.trim());
+        }
+      };
+
+      const handleKeyPress = (e) => {
+        if (e.key === 'Enter' && email.trim()) {
+          onLogin(email.trim());
+        }
+      };
+
+      return React.createElement("div", { className: "container" },
+        React.createElement("h1", null, "⌛ Calendrier JDR"),
+        React.createElement("form", { onSubmit: handleSubmit },
+          React.createElement("div", { className: "form-group" },
+            React.createElement("input", {
+              type: "email",
+              placeholder: "Votre adresse email",
+              value: email,
+              onChange: e => setEmail(e.target.value),
+              onKeyPress: handleKeyPress,
+              autoFocus: true
+            }),
+            React.createElement("button", {
+              type: "submit",
+              disabled: !email.trim()
+            }, "Se connecter")
+          )
+        )
+      );
+    }
+
+    function PseudoPage({ onSetPseudo, currentPseudo = "" }) {
+      const [pseudo, setPseudo] = useState(currentPseudo);
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        if (pseudo.trim()) {
+          onSetPseudo(pseudo.trim());
+        }
+      };
+
+      const handleKeyPress = (e) => {
+        if (e.key === 'Enter' && pseudo.trim()) {
+          onSetPseudo(pseudo.trim());
+        }
+      };
+
+      return React.createElement("div", { className: "container" },
+        React.createElement("h2", null, currentPseudo ? "Modifier votre pseudo" : "Choisissez votre pseudo"),
+        React.createElement("form", { onSubmit: handleSubmit },
+          React.createElement("div", { className: "form-group" },
+            React.createElement("input", {
+              type: "text",
+              placeholder: "Votre pseudo",
+              value: pseudo,
+              onChange: e => setPseudo(e.target.value),
+              onKeyPress: handleKeyPress,
+              autoFocus: true
+            }),
+            React.createElement("button", {
+              type: "submit",
+              disabled: !pseudo.trim()
+            }, currentPseudo ? "Modifier" : "Valider")
+          )
+        )
+      );
+    }
+
+    function MonthSelector({ month, year, onPrev, onNext, onSelect, pseudo, onLogout, isAdmin, onAdmin, onManageUsers, onChangePseudo }) {
+      return React.createElement("div", { className: "container" },
+        React.createElement("div", { className: "header" },
+          React.createElement("span", null, "👋 Bonjour, ", React.createElement("strong", null, pseudo)),
+          React.createElement("div", { style: { display: "flex", gap: "0.5rem" } },
+            React.createElement("button", { onClick: onChangePseudo }, "✏️ Modifier pseudo"),
+            React.createElement("button", { onClick: onLogout }, "Déconnexion")
+          )
+        ),
+        React.createElement("h2", null, "Sélectionnez un mois"),
+        React.createElement("div", { className: "month-selector" },
+          React.createElement("div", { className: "month-nav" },
+            React.createElement("button", { onClick: onPrev }, "‹"),
+            React.createElement("div", { className: "month-display" }, MONTHS[month], " ", year),
+            React.createElement("button", { onClick: onNext }, "›")
+          ),
+          React.createElement("div", { className: "actions" },
+            React.createElement("button", { onClick: onSelect }, "⌛ Voir le calendrier"),
+            isAdmin && React.createElement("button", { 
+              onClick: onAdmin
+            }, "👑 Vue admin"),
+            isAdmin && React.createElement("button", { 
+              onClick: onManageUsers
+            }, "⚙️ Gérer les utilisateurs")
+          )
+        )
+      );
+    }
+
+    const DISP_OPTIONS = [
+      { value: "available", label: "✅", text: "Disponible" },
+      { value: "maybe", label: "❓", text: "Peut se libérer" },
+      { value: "unavailable", label: "❌", text: "Indisponible" },
+    ];
+
+    function Calendar({ year, month, days, onChange, onSave, onBack }) {
+      const firstDay = new Date(year, month, 1).getDay();
+      const nbDays = getDaysInMonth(year, month);
+      const offset = (firstDay + 6) % 7;
+
+      return React.createElement("div", { className: "container" },
+        React.createElement("h3", null, "📅 Disponibilités pour ", MONTHS[month], " ", year),
+        React.createElement("div", { className: "calendar-container" },
+          React.createElement("table", { className: "calendar-table" },
+            React.createElement("thead", null,
+              React.createElement("tr", null,
+                React.createElement("th", null, "Lun"),
+                React.createElement("th", null, "Mar"),
+                React.createElement("th", null, "Mer"),
+                React.createElement("th", null, "Jeu"),
+                React.createElement("th", null, "Ven"),
+                React.createElement("th", null, "Sam"),
+                React.createElement("th", null, "Dim")
+              )
+            ),
+            React.createElement("tbody", null,
+              Array.from({ length: Math.ceil((nbDays + offset) / 7) }).map((_, weekIdx) =>
+                React.createElement("tr", { key: weekIdx },
+                  Array.from({ length: 7 }).map((_, dayIdx) => {
+                    const dayNum = weekIdx * 7 + dayIdx - offset + 1;
+                    if (dayNum < 1 || dayNum > nbDays) return React.createElement("td", { key: dayIdx });
+                    return React.createElement("td", { key: dayIdx },
+                      React.createElement("div", { className: "day-number" }, dayNum),
+                      React.createElement("div", { className: "availability-options" },
+                        DISP_OPTIONS.map(opt =>
+                          React.createElement("label", { key: opt.value },
+                            React.createElement("input", {
+                              type: "radio",
+                              name: "day" + dayNum,
+                              value: opt.value,
+                              checked: days[dayNum] === opt.value,
+                              onChange: () => onChange(dayNum, opt.value)
+                            }),
+                            React.createElement("span", null, opt.label, " ", opt.text)
+                          )
+                        )
+                      )
+                    );
+                  })
+                )
+              )
+            )
+          )
+        ),
+        React.createElement("div", { className: "legend" },
+          DISP_OPTIONS.map(opt => 
+            React.createElement("span", { key: opt.value }, opt.label, " ", opt.text)
+          )
+        ),
+        React.createElement("div", { className: "actions" },
+          React.createElement("button", { onClick: onSave }, "💾 Enregistrer"),
+          React.createElement("button", { 
+            onClick: onBack
+          }, "← Retour")
+        )
+      );
+    }
+
+    function AdminView({ year, month, users, availabilities, onBack }) {
+      const nbDays = getDaysInMonth(year, month);
+      
+      return React.createElement("div", { className: "container" },
+        React.createElement("h3", null, "👤 Vue admin - ", MONTHS[month], " ", year),
+        React.createElement("div", { className: "admin-table-container" },
+          React.createElement("table", { className: "admin-table" },
+            React.createElement("thead", null,
+              React.createElement("tr", null,
+                React.createElement("th", { className: "player-name" }, "Joueur"),
+                Array.from({ length: nbDays }).map((_, i) =>
+                  React.createElement("th", { key: i + 1 }, i + 1)
+                )
+              )
+            ),
+            React.createElement("tbody", null,
+              users.map(user =>
+                React.createElement("tr", { key: user.email },
+                  React.createElement("td", { className: "player-name" }, user.displayName),
+                  Array.from({ length: nbDays }).map((_, i) => {
+                    const day = i + 1;
+                    const disp = availabilities[user.email]?.[day];
+                    let symbol = "";
+                    let className = "";
+                    if (disp === "available") {
+                      symbol = "✅";
+                      className = "status-available";
+                    } else if (disp === "maybe") {
+                      symbol = "❓";
+                      className = "status-maybe";
+                    } else if (disp === "unavailable") {
+                      symbol = "❌";
+                      className = "status-unavailable";
+                    }
+                    return React.createElement("td", { key: day, className }, symbol);
+                  })
+                )
+              )
+            )
+          )
+        ),
+        React.createElement("div", { className: "actions" },
+          React.createElement("button", { 
+            onClick: onBack
+          }, "← Retour")
+        )
+      );
+    }
+
+    function UserManagement({ users, currentUser, onToggleAdmin, onDeleteUser, onBack }) {
+      const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+      const handleDeleteUser = (userToDelete) => {
+        if (deleteConfirm === userToDelete.email) {
+          onDeleteUser(userToDelete.email);
+          setDeleteConfirm(null);
+        } else {
+          setDeleteConfirm(userToDelete.email);
+        }
+      };
+
+      const handleCancelDelete = () => {
+        setDeleteConfirm(null);
+      };
+
+      return React.createElement("div", { className: "container" },
+        React.createElement("h3", null, "⚙️ Gestion des utilisateurs"),
+        React.createElement("div", { className: "admin-panel" },
+          React.createElement("h4", null, "Liste des participants"),
+          React.createElement("div", { className: "user-list" },
+            users.map(user =>
+              React.createElement("div", { key: user.email, className: "user-item" },
+                React.createElement("div", { className: "user-info" },
+                  React.createElement("div", null, user.displayName),
+                  React.createElement("div", { className: "user-email" }, user.email),
+                  user.isAdmin && React.createElement("div", { style: { color: "#38a169", fontSize: "0.8rem" } }, "👑 Admin")
+                ),
+                React.createElement("div", { className: "user-actions" },
+                  user.email !== currentUser.email && React.createElement("button", {
+                    onClick: () => onToggleAdmin(user.email),
+                    className: user.isAdmin ? "danger-button" : "success-button"
+                  }, user.isAdmin ? "Retirer admin" : "Rendre admin"),
+                  user.email !== currentUser.email && React.createElement("button", {
+                    onClick: () => handleDeleteUser(user),
+                    className: "danger-button"
+                  }, deleteConfirm === user.email ? "Confirmer suppression" : "Supprimer")
+                )
+              )
+            )
+          )
+        ),
+        deleteConfirm && React.createElement("div", { className: "modal-overlay" },
+          React.createElement("div", { className: "modal" },
+            React.createElement("h4", null, "⚠️ Confirmation de suppression"),
+            React.createElement("p", null, "Êtes-vous sûr de vouloir supprimer cet utilisateur ? Cette action est irréversible."),
+            React.createElement("div", { className: "modal-buttons" },
+              React.createElement("button", { onClick: handleCancelDelete }, "Annuler"),
+              React.createElement("button", { 
+                onClick: () => handleDeleteUser({ email: deleteConfirm }),
+                className: "danger-button"
+              }, "Supprimer définitivement")
+            )
+          )
+        ),
+        React.createElement("div", { className: "actions" },
+          React.createElement("button", { 
+            onClick: onBack
+          }, "← Retour")
+        )
+      );
+    }
+
+    function App() {
+      const [user, setUser] = useState(null);
+      const [step, setStep] = useState("login");
+      const [year, setYear] = useState(new Date().getFullYear());
+      const [month, setMonth] = useState(new Date().getMonth());
+      const [days, setDays] = useState({});
+      const [users, setUsers] = useState(fakeDB.users);
+      const [availabilities, setAvailabilities] = useState(fakeDB.availabilities);
+
+      // Récupérer les informations à jour de l'utilisateur courant
+      const currentUser = user ? users.find(u => u.email === user.email) || user : null;
+      const isAdmin = currentUser && currentUser.isAdmin;
+
+      function handleLogin(email) {
+        let existing = users.find(u => u.email === email);
+        if (existing) {
+          setUser(existing);
+          setStep(existing.displayName ? "month" : "pseudo");
+        } else {
+          setUser({ email, displayName: "", isAdmin: users.length === 0 });
+          setStep("pseudo");
+        }
+      }
+
+      function handleSetPseudo(pseudo) {
+        const existing = users.find(u => u.email === user.email);
+        const newUser = {
+          ...user,
+          displayName: pseudo,
+          isAdmin: existing ? existing.isAdmin : users.length === 0
+        };
+        setUser(newUser);
+        if (existing) {
+          setUsers(prev => prev.map(u => u.email === user.email ? newUser : u));
+        } else {
+          setUsers(prev => [...prev, newUser]);
+        }
+        setStep("month");
+      }
+
+      function handlePrevMonth() {
+        if (month === 0) {
+          setMonth(11);
+          setYear(y => y - 1);
+        } else {
+          setMonth(m => m - 1);
+        }
+      }
+      function handleNextMonth() {
+        if (month === 11) {
+          setMonth(0);
+          setYear(y => y + 1);
+        } else {
+          setMonth(m => m + 1);
+        }
+      }
+
+      function handleShowCalendar() {
+        const key = user.email + "_" + year + "_" + month;
+        setDays(availabilities[key] || {});
+        setStep("calendar");
+      }
+
+      function handleSaveDays() {
+        const key = user.email + "_" + year + "_" + month;
+        setAvailabilities(prev => ({
+          ...prev,
+          [key]: { ...days }
+        }));
+        alert("✅ Disponibilités enregistrées !");
+        setStep("month");
+      }
+
+      function handleShowAdmin() {
+        setStep("admin");
+      }
+
+      function handleManageUsers() {
+        setStep("users");
+      }
+
+      function handleChangePseudo() {
+        setStep("pseudo");
+      }
+
+      function handleToggleAdmin(email) {
+        setUsers(prev => prev.map(u => 
+          u.email === email ? { ...u, isAdmin: !u.isAdmin } : u
+        ));
+      }
+
+      function handleDeleteUser(email) {
+        setUsers(prev => prev.filter(u => u.email !== email));
+        // Supprimer aussi les disponibilités de cet utilisateur
+        const newAvailabilities = {};
+        Object.keys(availabilities).forEach(key => {
+          if (!key.startsWith(email + "_")) {
+            newAvailabilities[key] = availabilities[key];
+          }
+        });
+        setAvailabilities(newAvailabilities);
+      }
+
+      function getAllAvailabilitiesForMonth() {
+        const result = {};
+        users.forEach(u => {
+          const key = u.email + "_" + year + "_" + month;
+          result[u.email] = availabilities[key] || {};
+        });
+        return result;
+      }
+
+      function handleLogout() {
+        setUser(null);
+        setStep("login");
+      }
+
+      if (step === "login") {
+        return React.createElement(LoginPage, { onLogin: handleLogin });
+      }
+      if (step === "pseudo") {
+        return React.createElement(PseudoPage, { 
+          onSetPseudo: handleSetPseudo,
+          currentPseudo: user?.displayName || ""
+        });
+      }
+      if (step === "month") {
+        return React.createElement(MonthSelector, {
+          month, year,
+          onPrev: handlePrevMonth,
+          onNext: handleNextMonth,
+          onSelect: handleShowCalendar,
+          pseudo: currentUser?.displayName || user?.displayName || "",
+          onLogout: handleLogout,
+          isAdmin,
+          onAdmin: handleShowAdmin,
+          onManageUsers: handleManageUsers,
+          onChangePseudo: handleChangePseudo
+        });
+      }
+      if (step === "calendar") {
+        return React.createElement(Calendar, {
+          year, month, days,
+          onChange: (day, value) => setDays(prev => ({ ...prev, [day]: value })),
+          onSave: handleSaveDays,
+          onBack: () => setStep("month")
+        });
+      }
+      if (step === "admin") {
+        return React.createElement(AdminView, {
+          year, month,
+          users,
+          availabilities: getAllAvailabilitiesForMonth(),
+          onBack: () => setStep("month")
+        });
+      }
+      if (step === "users") {
+        return React.createElement(UserManagement, {
+          users,
+          currentUser: currentUser || user,
+          onToggleAdmin: handleToggleAdmin,
+          onDeleteUser: handleDeleteUser,
+          onBack: () => setStep("month")
+        });
+      }
+      return null;
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+  </script>
+</body>
+</html>
