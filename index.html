@@ -391,6 +391,11 @@
       }
     }
     
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
     @media (max-width: 480px) {
       .calendar-table th {
         padding: 4px 2px;
@@ -428,32 +433,72 @@
   <script>
     const { useState } = React;
 
-    // Fonctions utilitaires pour gérer les cookies
-    function setCookie(name, value, days) {
-      const expires = new Date();
-      expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
-      document.cookie = name + "=" + value + ";expires=" + expires.toUTCString() + ";path=/";
-    }
+    // Configuration de l'API
+    const API_BASE_URL = 'http://localhost:3000/api';
 
-    function getCookie(name) {
-      const nameEQ = name + "=";
-      const ca = document.cookie.split(';');
-      for(let i = 0; i < ca.length; i++) {
-        let c = ca[i];
-        while (c.charAt(0) === ' ') c = c.substring(1, c.length);
-        if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+    // Fonctions pour communiquer avec le backend
+    async function loadDataFromServer() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/data`);
+        const data = await response.json();
+        console.log('Données chargées depuis le serveur:', data);
+        return data;
+      } catch (error) {
+        console.error('Erreur lors du chargement des données:', error);
+        return { users: [], availabilities: {} };
       }
-      return null;
     }
 
-    function deleteCookie(name) {
-      document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;";
+    async function saveUsersToServer(users) {
+      try {
+        console.log('Sauvegarde des utilisateurs:', users);
+        const response = await fetch(`${API_BASE_URL}/users`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ users })
+        });
+        const result = await response.json();
+        console.log('Réponse serveur (utilisateurs):', result);
+        return result.success;
+      } catch (error) {
+        console.error('Erreur lors de la sauvegarde des utilisateurs:', error);
+        return false;
+      }
     }
 
-    const fakeDB = {
-      users: [],
-      availabilities: {},
-    };
+    async function saveAvailabilitiesToServer(availabilities) {
+      try {
+        console.log('Sauvegarde des disponibilités:', availabilities);
+        const response = await fetch(`${API_BASE_URL}/availabilities`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ availabilities })
+        });
+        const result = await response.json();
+        console.log('Réponse serveur (disponibilités):', result);
+        return result.success;
+      } catch (error) {
+        console.error('Erreur lors de la sauvegarde des disponibilités:', error);
+        return false;
+      }
+    }
+
+    async function saveAllDataToServer(users, availabilities) {
+      try {
+        console.log('Sauvegarde de toutes les données');
+        const response = await fetch(`${API_BASE_URL}/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ users, availabilities })
+        });
+        const result = await response.json();
+        console.log('Réponse serveur (toutes données):', result);
+        return result.success;
+      } catch (error) {
+        console.error('Erreur lors de la sauvegarde:', error);
+        return false;
+      }
+    }
 
     const MONTHS = [
       "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
@@ -763,8 +808,20 @@
       const [year, setYear] = useState(new Date().getFullYear());
       const [month, setMonth] = useState(new Date().getMonth());
       const [days, setDays] = useState({});
-      const [users, setUsers] = useState(fakeDB.users);
-      const [availabilities, setAvailabilities] = useState(fakeDB.availabilities);
+      const [users, setUsers] = useState([]);
+      const [availabilities, setAvailabilities] = useState({});
+      const [isLoading, setIsLoading] = useState(true);
+
+      // Charger les données au démarrage
+      React.useEffect(() => {
+        async function loadData() {
+          const data = await loadDataFromServer();
+          setUsers(data.users || []);
+          setAvailabilities(data.availabilities || {});
+          setIsLoading(false);
+        }
+        loadData();
+      }, []);
 
       // Récupérer les informations à jour de l'utilisateur courant
       const currentUser = user ? users.find(u => u.email === user.email) || user : null;
@@ -776,12 +833,16 @@
           setUser(existing);
           setStep(existing.displayName ? "month" : "pseudo");
         } else {
-          setUser({ email, displayName: "", isAdmin: users.length === 0 });
+          const newUser = { email, displayName: "", isAdmin: users.length === 0 };
+          setUser(newUser);
+          const updatedUsers = [...users, newUser];
+          setUsers(updatedUsers);
+          saveUsersToCookies(updatedUsers);
           setStep("pseudo");
         }
       }
 
-      function handleSetPseudo(pseudo) {
+      async function handleSetPseudo(pseudo) {
         const existing = users.find(u => u.email === user.email);
         const newUser = {
           ...user,
@@ -790,9 +851,13 @@
         };
         setUser(newUser);
         if (existing) {
-          setUsers(prev => prev.map(u => u.email === user.email ? newUser : u));
+          const updatedUsers = users.map(u => u.email === user.email ? newUser : u);
+          setUsers(updatedUsers);
+          await saveUsersToServer(updatedUsers);
         } else {
-          setUsers(prev => [...prev, newUser]);
+          const updatedUsers = [...users, newUser];
+          setUsers(updatedUsers);
+          await saveUsersToServer(updatedUsers);
         }
         setStep("month");
       }
@@ -820,13 +885,19 @@
         setStep("calendar");
       }
 
-      function handleSaveDays() {
+      async function handleSaveDays() {
         const key = user.email + "_" + year + "_" + month;
-        setAvailabilities(prev => ({
-          ...prev,
+        const updatedAvailabilities = {
+          ...availabilities,
           [key]: { ...days }
-        }));
-        alert("✅ Disponibilités enregistrées !");
+        };
+        setAvailabilities(updatedAvailabilities);
+        const success = await saveAvailabilitiesToServer(updatedAvailabilities);
+        if (success) {
+          alert("✅ Disponibilités enregistrées !");
+        } else {
+          alert("❌ Erreur lors de la sauvegarde");
+        }
         setStep("month");
       }
 
@@ -842,14 +913,19 @@
         setStep("pseudo");
       }
 
-      function handleToggleAdmin(email) {
-        setUsers(prev => prev.map(u => 
+      async function handleToggleAdmin(email) {
+        const updatedUsers = users.map(u => 
           u.email === email ? { ...u, isAdmin: !u.isAdmin } : u
-        ));
+        );
+        setUsers(updatedUsers);
+        await saveUsersToServer(updatedUsers);
       }
 
-      function handleDeleteUser(email) {
-        setUsers(prev => prev.filter(u => u.email !== email));
+      async function handleDeleteUser(email) {
+        const updatedUsers = users.filter(u => u.email !== email);
+        setUsers(updatedUsers);
+        await saveUsersToServer(updatedUsers);
+        
         // Supprimer aussi les disponibilités de cet utilisateur
         const newAvailabilities = {};
         Object.keys(availabilities).forEach(key => {
@@ -858,6 +934,7 @@
           }
         });
         setAvailabilities(newAvailabilities);
+        await saveAvailabilitiesToServer(newAvailabilities);
       }
 
       function getAllAvailabilitiesForMonth() {
@@ -874,6 +951,24 @@
         setStep("login");
         // Optionnel : supprimer le cookie lors de la déconnexion
         // deleteCookie('userEmail');
+      }
+
+      if (isLoading) {
+        return React.createElement("div", { className: "container" },
+          React.createElement("h1", null, "⌛ Calendrier JDR"),
+          React.createElement("div", { style: { textAlign: "center", marginTop: "2rem" } },
+            React.createElement("p", null, "Chargement des données..."),
+            React.createElement("div", { style: { 
+              width: "50px", 
+              height: "50px", 
+              border: "3px solid #f3f3f3", 
+              borderTop: "3px solid #667eea", 
+              borderRadius: "50%", 
+              animation: "spin 1s linear infinite",
+              margin: "0 auto"
+            } })
+          )
+        );
       }
 
       if (step === "login") {
