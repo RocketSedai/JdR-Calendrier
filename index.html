@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -290,11 +291,21 @@
     .danger-button:hover {
       background: #c53030 !important;
     }
+    .admin-button {
+      background: linear-gradient(135deg, #00b4d8 0%, #48cae4 100%) !important;
+    }
+    .admin-button:hover {
+      background: linear-gradient(135deg, #0096c7 0%, #38b0d8 100%) !important;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 180, 216, 0.3);
+    }
     .success-button {
-      background: #38a169 !important;
+      background: linear-gradient(135deg, #00b4d8 0%, #48cae4 100%) !important;
     }
     .success-button:hover {
-      background: #2f855a !important;
+      background: linear-gradient(135deg, #0096c7 0%, #38b0d8 100%) !important;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 180, 216, 0.3);
     }
     
     .modal-overlay {
@@ -417,6 +428,28 @@
   <script>
     const { useState } = React;
 
+    // Fonctions utilitaires pour gérer les cookies
+    function setCookie(name, value, days) {
+      const expires = new Date();
+      expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+      document.cookie = name + "=" + value + ";expires=" + expires.toUTCString() + ";path=/";
+    }
+
+    function getCookie(name) {
+      const nameEQ = name + "=";
+      const ca = document.cookie.split(';');
+      for(let i = 0; i < ca.length; i++) {
+        let c = ca[i];
+        while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+        if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+      }
+      return null;
+    }
+
+    function deleteCookie(name) {
+      document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;";
+    }
+
     const fakeDB = {
       users: [],
       availabilities: {},
@@ -432,17 +465,24 @@
     }
 
     function LoginPage({ onLogin }) {
-      const [email, setEmail] = useState("");
+      const [email, setEmail] = useState(() => {
+        // Récupérer l'email depuis les cookies au chargement
+        return getCookie('userEmail') || "";
+      });
 
       const handleSubmit = (e) => {
         e.preventDefault();
         if (email.trim()) {
+          // Sauvegarder l'email dans les cookies
+          setCookie('userEmail', email.trim(), 365); // Expire dans 1 an
           onLogin(email.trim());
         }
       };
 
       const handleKeyPress = (e) => {
         if (e.key === 'Enter' && email.trim()) {
+          // Sauvegarder l'email dans les cookies
+          setCookie('userEmail', email.trim(), 365); // Expire dans 1 an
           onLogin(email.trim());
         }
       };
@@ -523,11 +563,13 @@
           ),
           React.createElement("div", { className: "actions" },
             React.createElement("button", { onClick: onSelect }, "⌛ Voir le calendrier"),
-            isAdmin && React.createElement("button", { 
-              onClick: onAdmin
+            isAdmin &&             React.createElement("button", { 
+              onClick: onAdmin,
+              className: "admin-button"
             }, "👑 Vue admin"),
             isAdmin && React.createElement("button", { 
-              onClick: onManageUsers
+              onClick: onManageUsers,
+              className: "admin-button"
             }, "⚙️ Gérer les utilisateurs")
           )
         )
@@ -683,7 +725,7 @@
                 React.createElement("div", { className: "user-actions" },
                   user.email !== currentUser.email && React.createElement("button", {
                     onClick: () => onToggleAdmin(user.email),
-                    className: user.isAdmin ? "danger-button" : "success-button"
+                    className: user.isAdmin ? "danger-button" : "admin-button"
                   }, user.isAdmin ? "Retirer admin" : "Rendre admin"),
                   user.email !== currentUser.email && React.createElement("button", {
                     onClick: () => handleDeleteUser(user),
@@ -830,6 +872,8 @@
       function handleLogout() {
         setUser(null);
         setStep("login");
+        // Optionnel : supprimer le cookie lors de la déconnexion
+        // deleteCookie('userEmail');
       }
 
       if (step === "login") {
