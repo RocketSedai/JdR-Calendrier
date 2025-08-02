@@ -811,7 +811,7 @@
                     className: user.role === 'mj' ? "danger-button" : "admin-button"
                   }, user.role === 'mj' ? "Retirer MJ" : "Rendre MJ"),
                   user.email !== currentUser.email && currentUser.role === 'admin' && React.createElement("button", {
-                    onClick: () => handleDeleteUser(user),
+                    onClick: () => onDeleteUser(user.email),
                     className: "danger-button"
                   }, deleteConfirm === user.email ? "Confirmer suppression" : "Supprimer")
                 )
@@ -876,23 +876,35 @@
       }, []);
 
       function handleLogin(email) {
+        console.log('🔐 Tentative de connexion pour:', email);
+        console.log('📊 Utilisateurs existants:', users);
+        
         let existing = users.find(u => u.email === email);
         if (existing) {
+          console.log('✅ Utilisateur existant trouvé:', existing);
           setUser(existing);
           setStep(existing.displayName ? "month" : "pseudo");
         } else {
-          setUser({ email, displayName: "", role: users.length === 0 ? 'admin' : 'user' });
+          console.log('🆕 Nouvel utilisateur créé');
+          // Pour un nouvel utilisateur, on définit le rôle après avoir sauvegardé
+          setUser({ email, displayName: "" });
           setStep("pseudo");
         }
       }
 
       async function handleSetPseudo(pseudo) {
+        console.log('✏️ Définition du pseudo:', pseudo);
+        console.log('👤 Utilisateur actuel:', user);
+        console.log('📊 Utilisateurs existants:', users);
+        
         const existing = users.find(u => u.email === user.email);
         const newUser = {
           ...user,
           displayName: pseudo,
           role: existing ? existing.role : (users.length === 0 ? 'admin' : 'user')
         };
+        
+        console.log('🆕 Nouvel utilisateur à créer:', newUser);
         setUser(newUser);
         
         let newUsers;
@@ -902,14 +914,21 @@
           newUsers = [...users, newUser];
         }
         
+        console.log('📝 Liste des utilisateurs mise à jour:', newUsers);
         setUsers(newUsers);
         
         // Sauvegarder sur le serveur
+        console.log('💾 Sauvegarde sur le serveur...');
         const result = await saveUsers(newUsers);
+        console.log('📡 Résultat de la sauvegarde:', result);
+        
         if (!result.success) {
+          console.error('❌ Erreur de sauvegarde:', result.message);
           alert('Erreur lors de la sauvegarde: ' + result.message);
+          return; // Ne pas continuer si la sauvegarde échoue
         }
         
+        console.log('✅ Sauvegarde réussie, passage à l\'étape suivante');
         setStep("month");
       }
 
@@ -1051,57 +1070,100 @@
         );
       }
 
-      if (step === "login") {
-        return React.createElement(LoginPage, { onLogin: handleLogin });
+      try {
+        if (step === "login") {
+          return React.createElement(LoginPage, { onLogin: handleLogin });
+        }
+        if (step === "pseudo") {
+          return React.createElement(PseudoPage, { 
+            onSetPseudo: handleSetPseudo,
+            currentPseudo: user?.displayName || ""
+          });
+        }
+        if (step === "month") {
+          return React.createElement(MonthSelector, {
+            month, year,
+            onPrev: handlePrevMonth,
+            onNext: handleNextMonth,
+            onSelect: handleShowCalendar,
+            pseudo: currentUser?.displayName || user?.displayName || "",
+            onLogout: handleLogout,
+            isAdmin,
+            onAdmin: handleShowAdmin,
+            onManageUsers: handleManageUsers,
+            onChangePseudo: handleChangePseudo
+          });
+        }
+        if (step === "calendar") {
+          return React.createElement(Calendar, {
+            year, month, days,
+            onChange: (day, value) => setDays(prev => ({ ...prev, [day]: value })),
+            onSave: handleSaveDays,
+            onBack: () => setStep("month"),
+            onPrevMonth: handlePrevMonth,
+            onNextMonth: handleNextMonth
+          });
+        }
+        if (step === "admin") {
+          return React.createElement(AdminView, {
+            year, month,
+            users,
+            availabilities: getAllAvailabilitiesForMonth(),
+            onBack: () => setStep("month")
+          });
+        }
+        if (step === "users") {
+          return React.createElement(UserManagement, {
+            users,
+            currentUser: currentUser || user,
+            onToggleRole: handleToggleRole,
+            onDeleteUser: handleDeleteUser,
+            onBack: () => setStep("month")
+          });
+        }
+        
+        // Si aucune étape ne correspond, afficher une erreur
+        console.error('❌ Étape inconnue:', step);
+        return React.createElement("div", { className: "container" },
+          React.createElement("h1", null, "⌛ Calendrier JDR"),
+          React.createElement("div", { 
+            style: { 
+              textAlign: "center", 
+              padding: "2rem",
+              color: "#e53e3e"
+            } 
+          },
+            React.createElement("p", null, "❌ Erreur d'interface"),
+            React.createElement("p", null, "Étape inconnue: " + step),
+            React.createElement("button", { 
+              onClick: () => {
+                setStep("login");
+                setUser(null);
+              },
+              style: { marginTop: "1rem" }
+            }, "🔄 Recommencer")
+          )
+        );
+      } catch (error) {
+        console.error('❌ Erreur lors du rendu:', error);
+        return React.createElement("div", { className: "container" },
+          React.createElement("h1", null, "⌛ Calendrier JDR"),
+          React.createElement("div", { 
+            style: { 
+              textAlign: "center", 
+              padding: "2rem",
+              color: "#e53e3e"
+            } 
+          },
+            React.createElement("p", null, "❌ Erreur d'interface"),
+            React.createElement("p", null, error.message),
+            React.createElement("button", { 
+              onClick: () => window.location.reload(),
+              style: { marginTop: "1rem" }
+            }, "🔄 Recharger la page")
+          )
+        );
       }
-      if (step === "pseudo") {
-        return React.createElement(PseudoPage, { 
-          onSetPseudo: handleSetPseudo,
-          currentPseudo: user?.displayName || ""
-        });
-      }
-      if (step === "month") {
-        return React.createElement(MonthSelector, {
-          month, year,
-          onPrev: handlePrevMonth,
-          onNext: handleNextMonth,
-          onSelect: handleShowCalendar,
-          pseudo: currentUser?.displayName || user?.displayName || "",
-          onLogout: handleLogout,
-          isAdmin,
-          onAdmin: handleShowAdmin,
-          onManageUsers: handleManageUsers,
-          onChangePseudo: handleChangePseudo
-        });
-      }
-      if (step === "calendar") {
-        return React.createElement(Calendar, {
-          year, month, days,
-          onChange: (day, value) => setDays(prev => ({ ...prev, [day]: value })),
-          onSave: handleSaveDays,
-          onBack: () => setStep("month"),
-          onPrevMonth: handlePrevMonth,
-          onNextMonth: handleNextMonth
-        });
-      }
-      if (step === "admin") {
-        return React.createElement(AdminView, {
-          year, month,
-          users,
-          availabilities: getAllAvailabilitiesForMonth(),
-          onBack: () => setStep("month")
-        });
-      }
-      if (step === "users") {
-        return React.createElement(UserManagement, {
-          users,
-          currentUser: currentUser || user,
-          onToggleRole: handleToggleRole,
-          onDeleteUser: handleDeleteUser,
-          onBack: () => setStep("month")
-        });
-      }
-      return null;
     }
 
     ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
