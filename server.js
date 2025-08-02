@@ -4,13 +4,22 @@ const path = require('path');
 const cors = require('cors');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 const DATA_FILE = 'data.json';
+const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // Middleware
-app.use(cors());
-app.use(express.json());
-app.use(express.static('.'));
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://jdr-calendrier.onrender.com', 'https://*.onrender.com']
+    : true,
+  credentials: true
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.static('.', {
+  maxAge: NODE_ENV === 'production' ? '1h' : 0
+}));
 
 // Fonction pour lire les données
 function readData() {
@@ -38,47 +47,92 @@ function writeData(data) {
 
 // Routes API
 
+// Health check pour Render
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    environment: NODE_ENV,
+    uptime: process.uptime()
+  });
+});
+
 // GET - Récupérer toutes les données
 app.get('/api/data', (req, res) => {
-  const data = readData();
-  res.json(data);
+  try {
+    const data = readData();
+    res.json(data);
+  } catch (error) {
+    console.error('Erreur API /api/data:', error);
+    res.status(500).json({ error: 'Erreur serveur interne' });
+  }
 });
 
 // POST - Sauvegarder les utilisateurs
 app.post('/api/users', (req, res) => {
-  const { users } = req.body;
-  const data = readData();
-  data.users = users;
-  
-  if (writeData(data)) {
-    res.json({ success: true, message: 'Utilisateurs sauvegardés' });
-  } else {
-    res.status(500).json({ success: false, message: 'Erreur lors de la sauvegarde' });
+  try {
+    const { users } = req.body;
+    if (!users || !Array.isArray(users)) {
+      return res.status(400).json({ success: false, message: 'Données utilisateurs invalides' });
+    }
+    
+    const data = readData();
+    data.users = users;
+    
+    if (writeData(data)) {
+      res.json({ success: true, message: 'Utilisateurs sauvegardés' });
+    } else {
+      res.status(500).json({ success: false, message: 'Erreur lors de la sauvegarde' });
+    }
+  } catch (error) {
+    console.error('Erreur API /api/users:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur interne' });
   }
 });
 
 // POST - Sauvegarder les disponibilités
 app.post('/api/availabilities', (req, res) => {
-  const { availabilities } = req.body;
-  const data = readData();
-  data.availabilities = availabilities;
-  
-  if (writeData(data)) {
-    res.json({ success: true, message: 'Disponibilités sauvegardées' });
-  } else {
-    res.status(500).json({ success: false, message: 'Erreur lors de la sauvegarde' });
+  try {
+    const { availabilities } = req.body;
+    if (!availabilities || typeof availabilities !== 'object') {
+      return res.status(400).json({ success: false, message: 'Données de disponibilités invalides' });
+    }
+    
+    const data = readData();
+    data.availabilities = availabilities;
+    
+    if (writeData(data)) {
+      res.json({ success: true, message: 'Disponibilités sauvegardées' });
+    } else {
+      res.status(500).json({ success: false, message: 'Erreur lors de la sauvegarde' });
+    }
+  } catch (error) {
+    console.error('Erreur API /api/availabilities:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur interne' });
   }
 });
 
 // POST - Sauvegarder toutes les données
 app.post('/api/save', (req, res) => {
-  const { users, availabilities } = req.body;
-  const data = { users, availabilities };
-  
-  if (writeData(data)) {
-    res.json({ success: true, message: 'Données sauvegardées' });
-  } else {
-    res.status(500).json({ success: false, message: 'Erreur lors de la sauvegarde' });
+  try {
+    const { users, availabilities } = req.body;
+    if (!users || !Array.isArray(users)) {
+      return res.status(400).json({ success: false, message: 'Données utilisateurs invalides' });
+    }
+    if (!availabilities || typeof availabilities !== 'object') {
+      return res.status(400).json({ success: false, message: 'Données de disponibilités invalides' });
+    }
+    
+    const data = { users, availabilities };
+    
+    if (writeData(data)) {
+      res.json({ success: true, message: 'Données sauvegardées' });
+    } else {
+      res.status(500).json({ success: false, message: 'Erreur lors de la sauvegarde' });
+    }
+  } catch (error) {
+    console.error('Erreur API /api/save:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur interne' });
   }
 });
 
@@ -147,7 +201,41 @@ app.get('/admin', (req, res) => {
   res.send(html);
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Serveur démarré sur http://localhost:${PORT}`);
+// Gestion d'erreur globale
+app.use((err, req, res, next) => {
+  console.error('Erreur serveur:', err);
+  res.status(500).json({ 
+    error: 'Erreur serveur interne',
+    message: NODE_ENV === 'development' ? err.message : 'Une erreur est survenue'
+  });
+});
+
+// Route 404 pour les routes non trouvées
+app.use('*', (req, res) => {
+  res.status(404).json({ error: 'Route non trouvée' });
+});
+
+// Démarrage du serveur
+const server = app.listen(PORT, () => {
+  console.log(`🚀 Serveur démarré sur le port ${PORT}`);
+  console.log(`🌍 Environnement: ${NODE_ENV}`);
   console.log(`📊 Interface admin: http://localhost:${PORT}/admin`);
+  console.log(`💚 Health check: http://localhost:${PORT}/health`);
+});
+
+// Gestion gracieuse de l'arrêt
+process.on('SIGTERM', () => {
+  console.log('🛑 Signal SIGTERM reçu, arrêt gracieux...');
+  server.close(() => {
+    console.log('✅ Serveur arrêté proprement');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('🛑 Signal SIGINT reçu, arrêt gracieux...');
+  server.close(() => {
+    console.log('✅ Serveur arrêté proprement');
+    process.exit(0);
+  });
 }); 
