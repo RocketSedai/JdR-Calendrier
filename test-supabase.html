@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Test Supabase</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        .info { background: #d1ecf1; border-color: #bee5eb; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Test de Connexion Supabase</h1>
+        
+        <div class="test-section info">
+            <h3>📋 Instructions</h3>
+            <p>Ce test va vérifier la connexion à Supabase et l'état de votre base de données.</p>
+            <p>Cliquez sur les boutons ci-dessous pour tester chaque fonctionnalité.</p>
+        </div>
+
+        <div class="test-section">
+            <h3>🌐 Test de Connexion API</h3>
+            <button onclick="testAPI()">Tester l'API</button>
+            <div id="api-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Test de Récupération des Données</h3>
+            <button onclick="testFetchData()">Récupérer les données</button>
+            <div id="fetch-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>👥 Test de Sauvegarde Utilisateur</h3>
+            <button onclick="testSaveUser()">Sauvegarder un utilisateur test</button>
+            <div id="save-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 Test de Connexion Supabase Directe</h3>
+            <button onclick="testSupabaseConnection()">Tester la connexion Supabase</button>
+            <div id="supabase-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📝 Logs de Débogage</h3>
+            <button onclick="clearLogs()">Effacer les logs</button>
+            <div id="logs"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = window.location.origin;
+        let logs = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            logs.push(logEntry);
+            console.log(logEntry);
+            updateLogsDisplay();
+        }
+
+        function updateLogsDisplay() {
+            const logsDiv = document.getElementById('logs');
+            logsDiv.innerHTML = '<pre>' + logs.join('\n') + '</pre>';
+        }
+
+        function clearLogs() {
+            logs = [];
+            updateLogsDisplay();
+        }
+
+        function showResult(elementId, content, isSuccess = true) {
+            const element = document.getElementById(elementId);
+            element.className = isSuccess ? 'success' : 'error';
+            element.innerHTML = `<pre>${JSON.stringify(content, null, 2)}</pre>`;
+        }
+
+        async function testAPI() {
+            log('🔍 Test de l\'API de base...');
+            try {
+                const response = await fetch(`${API_BASE_URL}/health`);
+                const data = await response.json();
+                log('✅ API répond correctement');
+                showResult('api-result', data, true);
+            } catch (error) {
+                log('❌ Erreur API: ' + error.message);
+                showResult('api-result', { error: error.message }, false);
+            }
+        }
+
+        async function testFetchData() {
+            log('📊 Test de récupération des données...');
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/data`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                const data = await response.json();
+                log('✅ Données récupérées avec succès');
+                log(`📈 Utilisateurs: ${data.users?.length || 0}`);
+                log(`📈 Disponibilités: ${Object.keys(data.availabilities || {}).length}`);
+                showResult('fetch-result', data, true);
+            } catch (error) {
+                log('❌ Erreur récupération: ' + error.message);
+                showResult('fetch-result', { error: error.message }, false);
+            }
+        }
+
+        async function testSaveUser() {
+            log('👥 Test de sauvegarde d\'utilisateur...');
+            try {
+                const testUser = {
+                    users: [{
+                        email: 'test@example.com',
+                        displayName: 'Utilisateur Test',
+                        role: 'user'
+                    }]
+                };
+
+                const response = await fetch(`${API_BASE_URL}/api/users`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(testUser)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                log('✅ Utilisateur sauvegardé avec succès');
+                showResult('save-result', result, true);
+            } catch (error) {
+                log('❌ Erreur sauvegarde: ' + error.message);
+                showResult('save-result', { error: error.message }, false);
+            }
+        }
+
+        async function testSupabaseConnection() {
+            log('🔧 Test de connexion Supabase directe...');
+            try {
+                const response = await fetch(`${API_BASE_URL}/test-supabase`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                const data = await response.json();
+                log('✅ Connexion Supabase réussie');
+                showResult('supabase-result', data, true);
+            } catch (error) {
+                log('❌ Erreur connexion Supabase: ' + error.message);
+                showResult('supabase-result', { error: error.message }, false);
+            }
+        }
+
+        // Test automatique au chargement
+        window.onload = function() {
+            log('🚀 Page de test chargée');
+            log('🌐 URL de base: ' + API_BASE_URL);
+        };
+    </script>
+</body>
+</html> 
