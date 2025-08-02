@@ -56,7 +56,7 @@ async function getUsers() {
     const users = (data || []).map(user => ({
       email: user.email,
       displayName: user.display_name, // Conversion du snake_case vers camelCase
-      role: user.role || 'user' // Nouveau système de rôles
+      isAdmin: user.is_admin // Conversion du snake_case vers camelCase
     }));
     
     console.log('Utilisateurs récupérés:', users);
@@ -88,7 +88,7 @@ async function saveUsers(users) {
       const usersToInsert = users.map(user => ({
         email: user.email,
         display_name: user.displayName, // Notez le underscore
-        role: user.role || 'user' // Nouveau système de rôles
+        is_admin: user.isAdmin // Notez le underscore
       }));
       
       console.log('Données à insérer:', usersToInsert);
