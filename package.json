@@ -1,11 +1,17 @@
 {
-  "name": "calendrier-jdr-backend",
+  "name": "calendrier-jdr",
   "version": "1.0.0",
-  "description": "Backend pour le calendrier JDR",
+  "description": "Application de calendrier pour jeux de rôle avec gestion des disponibilités",
   "main": "server.js",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "build": "echo 'Build completed'",
+    "postinstall": "echo 'Dependencies installed successfully'"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -14,7 +20,15 @@
   "devDependencies": {
     "nodemon": "^3.0.1"
   },
-  "keywords": ["jdr", "calendrier", "backend"],
+  "keywords": ["jdr", "calendrier", "backend", "jeux-de-role", "disponibilites"],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RocketSedai/JdR-Calendrier"
+  },
+  "homepage": "https://jdr-calendrier.onrender.com",
+  "bugs": {
+    "url": "https://github.com/RocketSedai/JdR-Calendrier"
+  }
 } 
