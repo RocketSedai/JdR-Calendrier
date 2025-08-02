@@ -212,12 +212,13 @@
     .admin-table th {
       background: #667eea;
       color: white;
-      padding: 12px 8px;
+      padding: 8px 4px;
       font-weight: 600;
       text-align: center;
       position: sticky;
       top: 0;
       z-index: 10;
+      min-width: 50px;
     }
     .admin-table td {
       padding: 8px;
@@ -632,11 +633,11 @@
           ),
           React.createElement("div", { className: "actions" },
             React.createElement("button", { onClick: onSelect }, "⌛ Voir le calendrier"),
-            isAdmin &&             React.createElement("button", { 
+            isAdmin && React.createElement("button", { 
               onClick: onAdmin,
               className: "admin-button"
-            }, "👑 Vue admin"),
-            isAdmin && React.createElement("button", { 
+            }, "🎲 Vue Maître du Jeu"),
+            isSuperAdmin && React.createElement("button", { 
               onClick: onManageUsers,
               className: "admin-button"
             }, "⚙️ Gérer les utilisateurs")
@@ -651,13 +652,19 @@
       { value: "unavailable", label: "❌", text: "Indisponible" },
     ];
 
-    function Calendar({ year, month, days, onChange, onSave, onBack }) {
+    function Calendar({ year, month, days, onChange, onSave, onBack, onPrevMonth, onNextMonth }) {
       const firstDay = new Date(year, month, 1).getDay();
       const nbDays = getDaysInMonth(year, month);
       const offset = (firstDay + 6) % 7;
 
       return React.createElement("div", { className: "container" },
-        React.createElement("h3", null, "📅 Disponibilités pour ", MONTHS[month], " ", year),
+        React.createElement("div", { className: "header" },
+          React.createElement("h3", null, "📅 Disponibilités pour ", MONTHS[month], " ", year),
+          React.createElement("div", { className: "month-nav" },
+            React.createElement("button", { onClick: onPrevMonth }, "‹"),
+            React.createElement("button", { onClick: onNextMonth }, "›")
+          )
+        ),
         React.createElement("div", { className: "calendar-container" },
           React.createElement("table", { className: "calendar-table" },
             React.createElement("thead", null,
@@ -718,15 +725,21 @@
       const nbDays = getDaysInMonth(year, month);
       
       return React.createElement("div", { className: "container" },
-        React.createElement("h3", null, "👤 Vue admin - ", MONTHS[month], " ", year),
+        React.createElement("h3", null, "👤 Vue Maître du Jeu - ", MONTHS[month], " ", year),
         React.createElement("div", { className: "admin-table-container" },
           React.createElement("table", { className: "admin-table" },
             React.createElement("thead", null,
               React.createElement("tr", null,
                 React.createElement("th", { className: "player-name" }, "Joueur"),
-                Array.from({ length: nbDays }).map((_, i) =>
-                  React.createElement("th", { key: i + 1 }, i + 1)
-                )
+                Array.from({ length: nbDays }).map((_, i) => {
+                  const day = i + 1;
+                  const date = new Date(year, month, day);
+                  const dayName = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'][date.getDay()];
+                  return React.createElement("th", { key: day }, 
+                    React.createElement("div", null, dayName),
+                    React.createElement("div", { style: { fontSize: "0.8rem", fontWeight: "normal" } }, day)
+                  );
+                })
               )
             ),
             React.createElement("tbody", null,
@@ -763,7 +776,7 @@
       );
     }
 
-    function UserManagement({ users, currentUser, onToggleAdmin, onDeleteUser, onBack }) {
+    function UserManagement({ users, currentUser, onToggleRole, onDeleteUser, onBack }) {
       const [deleteConfirm, setDeleteConfirm] = useState(null);
 
       const handleDeleteUser = (userToDelete) => {
@@ -786,17 +799,18 @@
           React.createElement("div", { className: "user-list" },
             users.map(user =>
               React.createElement("div", { key: user.email, className: "user-item" },
-                React.createElement("div", { className: "user-info" },
-                  React.createElement("div", null, user.displayName),
-                  React.createElement("div", { className: "user-email" }, user.email),
-                  user.isAdmin && React.createElement("div", { style: { color: "#38a169", fontSize: "0.8rem" } }, "👑 Admin")
-                ),
+                                  React.createElement("div", { className: "user-info" },
+                    React.createElement("div", null, user.displayName),
+                    React.createElement("div", { className: "user-email" }, user.email),
+                    user.role === 'admin' && React.createElement("div", { style: { color: "#d63031", fontSize: "0.8rem" } }, "👑 Admin"),
+                    user.role === 'mj' && React.createElement("div", { style: { color: "#38a169", fontSize: "0.8rem" } }, "🎲 Maître du Jeu")
+                  ),
                 React.createElement("div", { className: "user-actions" },
-                  user.email !== currentUser.email && React.createElement("button", {
-                    onClick: () => onToggleAdmin(user.email),
-                    className: user.isAdmin ? "danger-button" : "admin-button"
-                  }, user.isAdmin ? "Retirer admin" : "Rendre admin"),
-                  user.email !== currentUser.email && React.createElement("button", {
+                  user.email !== currentUser.email && currentUser.role === 'admin' && React.createElement("button", {
+                    onClick: () => onToggleRole(user.email, user.role === 'mj' ? 'user' : 'mj'),
+                    className: user.role === 'mj' ? "danger-button" : "admin-button"
+                  }, user.role === 'mj' ? "Retirer MJ" : "Rendre MJ"),
+                  user.email !== currentUser.email && currentUser.role === 'admin' && React.createElement("button", {
                     onClick: () => handleDeleteUser(user),
                     className: "danger-button"
                   }, deleteConfirm === user.email ? "Confirmer suppression" : "Supprimer")
@@ -839,7 +853,8 @@
 
       // Récupérer les informations à jour de l'utilisateur courant
       const currentUser = user ? users.find(u => u.email === user.email) || user : null;
-      const isAdmin = currentUser && currentUser.isAdmin;
+      const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'mj');
+      const isSuperAdmin = currentUser && currentUser.role === 'admin';
 
       // Charger les données au démarrage
       React.useEffect(() => {
@@ -866,7 +881,7 @@
           setUser(existing);
           setStep(existing.displayName ? "month" : "pseudo");
         } else {
-          setUser({ email, displayName: "", isAdmin: users.length === 0 });
+          setUser({ email, displayName: "", role: users.length === 0 ? 'admin' : 'user' });
           setStep("pseudo");
         }
       }
@@ -876,7 +891,7 @@
         const newUser = {
           ...user,
           displayName: pseudo,
-          isAdmin: existing ? existing.isAdmin : users.length === 0
+          role: existing ? existing.role : (users.length === 0 ? 'admin' : 'user')
         };
         setUser(newUser);
         
@@ -951,9 +966,9 @@
         setStep("pseudo");
       }
 
-      async function handleToggleAdmin(email) {
+      async function handleToggleRole(email, newRole) {
         const newUsers = users.map(u => 
-          u.email === email ? { ...u, isAdmin: !u.isAdmin } : u
+          u.email === email ? { ...u, role: newRole } : u
         );
         setUsers(newUsers);
         
@@ -1064,7 +1079,9 @@
           year, month, days,
           onChange: (day, value) => setDays(prev => ({ ...prev, [day]: value })),
           onSave: handleSaveDays,
-          onBack: () => setStep("month")
+          onBack: () => setStep("month"),
+          onPrevMonth: handlePrevMonth,
+          onNextMonth: handleNextMonth
         });
       }
       if (step === "admin") {
@@ -1079,7 +1096,7 @@
         return React.createElement(UserManagement, {
           users,
           currentUser: currentUser || user,
-          onToggleAdmin: handleToggleAdmin,
+          onToggleRole: handleToggleRole,
           onDeleteUser: handleDeleteUser,
           onBack: () => setStep("month")
         });
