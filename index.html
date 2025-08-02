@@ -391,11 +391,6 @@
       }
     }
     
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    
     @media (max-width: 480px) {
       .calendar-table th {
         padding: 4px 2px;
@@ -433,70 +428,99 @@
   <script>
     const { useState } = React;
 
-    // Configuration de l'API
-    const API_BASE_URL = 'http://localhost:3000/api';
+    // Fonctions utilitaires pour gérer les cookies
+    function setCookie(name, value, days) {
+      const expires = new Date();
+      expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+      document.cookie = name + "=" + value + ";expires=" + expires.toUTCString() + ";path=/";
+    }
 
-    // Fonctions pour communiquer avec le backend
-    async function loadDataFromServer() {
+    function getCookie(name) {
+      const nameEQ = name + "=";
+      const ca = document.cookie.split(';');
+      for(let i = 0; i < ca.length; i++) {
+        let c = ca[i];
+        while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+        if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+      }
+      return null;
+    }
+
+    function deleteCookie(name) {
+      document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;";
+    }
+
+    // Configuration de l'API
+    const API_BASE_URL = window.location.origin; // Utilise l'URL actuelle (localhost en dev, Render en prod)
+    
+    // Fonctions pour communiquer avec l'API
+    async function fetchData() {
       try {
-        const response = await fetch(`${API_BASE_URL}/data`);
-        const data = await response.json();
-        console.log('Données chargées depuis le serveur:', data);
-        return data;
+        const response = await fetch(`${API_BASE_URL}/api/data`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return await response.json();
       } catch (error) {
         console.error('Erreur lors du chargement des données:', error);
         return { users: [], availabilities: {} };
       }
     }
 
-    async function saveUsersToServer(users) {
+    async function saveUsers(users) {
       try {
-        console.log('Sauvegarde des utilisateurs:', users);
-        const response = await fetch(`${API_BASE_URL}/users`, {
+        const response = await fetch(`${API_BASE_URL}/api/users`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify({ users })
         });
-        const result = await response.json();
-        console.log('Réponse serveur (utilisateurs):', result);
-        return result.success;
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return await response.json();
       } catch (error) {
         console.error('Erreur lors de la sauvegarde des utilisateurs:', error);
-        return false;
+        return { success: false, message: 'Erreur de sauvegarde' };
       }
     }
 
-    async function saveAvailabilitiesToServer(availabilities) {
+    async function saveAvailabilities(availabilities) {
       try {
-        console.log('Sauvegarde des disponibilités:', availabilities);
-        const response = await fetch(`${API_BASE_URL}/availabilities`, {
+        const response = await fetch(`${API_BASE_URL}/api/availabilities`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify({ availabilities })
         });
-        const result = await response.json();
-        console.log('Réponse serveur (disponibilités):', result);
-        return result.success;
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return await response.json();
       } catch (error) {
         console.error('Erreur lors de la sauvegarde des disponibilités:', error);
-        return false;
+        return { success: false, message: 'Erreur de sauvegarde' };
       }
     }
 
-    async function saveAllDataToServer(users, availabilities) {
+    async function saveAllData(users, availabilities) {
       try {
-        console.log('Sauvegarde de toutes les données');
-        const response = await fetch(`${API_BASE_URL}/save`, {
+        const response = await fetch(`${API_BASE_URL}/api/save`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+          },
           body: JSON.stringify({ users, availabilities })
         });
-        const result = await response.json();
-        console.log('Réponse serveur (toutes données):', result);
-        return result.success;
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return await response.json();
       } catch (error) {
-        console.error('Erreur lors de la sauvegarde:', error);
-        return false;
+        console.error('Erreur lors de la sauvegarde des données:', error);
+        return { success: false, message: 'Erreur de sauvegarde' };
       }
     }
 
@@ -810,22 +834,31 @@
       const [days, setDays] = useState({});
       const [users, setUsers] = useState([]);
       const [availabilities, setAvailabilities] = useState({});
-      const [isLoading, setIsLoading] = useState(true);
-
-      // Charger les données au démarrage
-      React.useEffect(() => {
-        async function loadData() {
-          const data = await loadDataFromServer();
-          setUsers(data.users || []);
-          setAvailabilities(data.availabilities || {});
-          setIsLoading(false);
-        }
-        loadData();
-      }, []);
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState(null);
 
       // Récupérer les informations à jour de l'utilisateur courant
       const currentUser = user ? users.find(u => u.email === user.email) || user : null;
       const isAdmin = currentUser && currentUser.isAdmin;
+
+      // Charger les données au démarrage
+      React.useEffect(() => {
+        async function loadData() {
+          try {
+            setLoading(true);
+            setError(null);
+            const data = await fetchData();
+            setUsers(data.users || []);
+            setAvailabilities(data.availabilities || {});
+          } catch (err) {
+            console.error('Erreur lors du chargement:', err);
+            setError('Erreur de connexion au serveur');
+          } finally {
+            setLoading(false);
+          }
+        }
+        loadData();
+      }, []);
 
       function handleLogin(email) {
         let existing = users.find(u => u.email === email);
@@ -833,11 +866,7 @@
           setUser(existing);
           setStep(existing.displayName ? "month" : "pseudo");
         } else {
-          const newUser = { email, displayName: "", isAdmin: users.length === 0 };
-          setUser(newUser);
-          const updatedUsers = [...users, newUser];
-          setUsers(updatedUsers);
-          saveUsersToCookies(updatedUsers);
+          setUser({ email, displayName: "", isAdmin: users.length === 0 });
           setStep("pseudo");
         }
       }
@@ -850,15 +879,22 @@
           isAdmin: existing ? existing.isAdmin : users.length === 0
         };
         setUser(newUser);
+        
+        let newUsers;
         if (existing) {
-          const updatedUsers = users.map(u => u.email === user.email ? newUser : u);
-          setUsers(updatedUsers);
-          await saveUsersToServer(updatedUsers);
+          newUsers = users.map(u => u.email === user.email ? newUser : u);
         } else {
-          const updatedUsers = [...users, newUser];
-          setUsers(updatedUsers);
-          await saveUsersToServer(updatedUsers);
+          newUsers = [...users, newUser];
         }
+        
+        setUsers(newUsers);
+        
+        // Sauvegarder sur le serveur
+        const result = await saveUsers(newUsers);
+        if (!result.success) {
+          alert('Erreur lors de la sauvegarde: ' + result.message);
+        }
+        
         setStep("month");
       }
 
@@ -887,16 +923,18 @@
 
       async function handleSaveDays() {
         const key = user.email + "_" + year + "_" + month;
-        const updatedAvailabilities = {
+        const newAvailabilities = {
           ...availabilities,
           [key]: { ...days }
         };
-        setAvailabilities(updatedAvailabilities);
-        const success = await saveAvailabilitiesToServer(updatedAvailabilities);
-        if (success) {
+        setAvailabilities(newAvailabilities);
+        
+        // Sauvegarder sur le serveur
+        const result = await saveAvailabilities(newAvailabilities);
+        if (result.success) {
           alert("✅ Disponibilités enregistrées !");
         } else {
-          alert("❌ Erreur lors de la sauvegarde");
+          alert('Erreur lors de la sauvegarde: ' + result.message);
         }
         setStep("month");
       }
@@ -914,17 +952,21 @@
       }
 
       async function handleToggleAdmin(email) {
-        const updatedUsers = users.map(u => 
+        const newUsers = users.map(u => 
           u.email === email ? { ...u, isAdmin: !u.isAdmin } : u
         );
-        setUsers(updatedUsers);
-        await saveUsersToServer(updatedUsers);
+        setUsers(newUsers);
+        
+        // Sauvegarder sur le serveur
+        const result = await saveUsers(newUsers);
+        if (!result.success) {
+          alert('Erreur lors de la sauvegarde: ' + result.message);
+        }
       }
 
       async function handleDeleteUser(email) {
-        const updatedUsers = users.filter(u => u.email !== email);
-        setUsers(updatedUsers);
-        await saveUsersToServer(updatedUsers);
+        const newUsers = users.filter(u => u.email !== email);
+        setUsers(newUsers);
         
         // Supprimer aussi les disponibilités de cet utilisateur
         const newAvailabilities = {};
@@ -934,7 +976,12 @@
           }
         });
         setAvailabilities(newAvailabilities);
-        await saveAvailabilitiesToServer(newAvailabilities);
+        
+        // Sauvegarder sur le serveur
+        const result = await saveAllData(newUsers, newAvailabilities);
+        if (!result.success) {
+          alert('Erreur lors de la sauvegarde: ' + result.message);
+        }
       }
 
       function getAllAvailabilitiesForMonth() {
@@ -953,20 +1000,38 @@
         // deleteCookie('userEmail');
       }
 
-      if (isLoading) {
+      // Écran de chargement
+      if (loading) {
         return React.createElement("div", { className: "container" },
           React.createElement("h1", null, "⌛ Calendrier JDR"),
-          React.createElement("div", { style: { textAlign: "center", marginTop: "2rem" } },
-            React.createElement("p", null, "Chargement des données..."),
-            React.createElement("div", { style: { 
-              width: "50px", 
-              height: "50px", 
-              border: "3px solid #f3f3f3", 
-              borderTop: "3px solid #667eea", 
-              borderRadius: "50%", 
-              animation: "spin 1s linear infinite",
-              margin: "0 auto"
-            } })
+          React.createElement("div", { 
+            style: { 
+              textAlign: "center", 
+              padding: "2rem",
+              fontSize: "1.2rem",
+              color: "#666"
+            } 
+          }, "🔄 Chargement des données...")
+        );
+      }
+
+      // Écran d'erreur
+      if (error) {
+        return React.createElement("div", { className: "container" },
+          React.createElement("h1", null, "⌛ Calendrier JDR"),
+          React.createElement("div", { 
+            style: { 
+              textAlign: "center", 
+              padding: "2rem",
+              color: "#e53e3e"
+            } 
+          },
+            React.createElement("p", null, "❌ Erreur de connexion"),
+            React.createElement("p", null, error),
+            React.createElement("button", { 
+              onClick: () => window.location.reload(),
+              style: { marginTop: "1rem" }
+            }, "🔄 Réessayer")
           )
         );
       }
