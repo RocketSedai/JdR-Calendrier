@@ -14,6 +14,31 @@ if (!supabaseUrl || !supabaseKey) {
 // Création du client Supabase
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// Fonction de test de connexion
+async function testConnection() {
+  try {
+    console.log('🔍 Test de connexion Supabase...');
+    console.log('URL:', supabaseUrl);
+    console.log('Clé (premiers caractères):', supabaseKey ? supabaseKey.substring(0, 20) + '...' : 'Non définie');
+    
+    const { data, error } = await supabase
+      .from('users')
+      .select('count')
+      .limit(1);
+    
+    if (error) {
+      console.error('❌ Erreur de connexion Supabase:', error);
+      return false;
+    }
+    
+    console.log('✅ Connexion Supabase réussie');
+    return true;
+  } catch (error) {
+    console.error('❌ Erreur lors du test de connexion:', error);
+    return false;
+  }
+}
+
 // Fonctions pour gérer les utilisateurs
 async function getUsers() {
   try {
@@ -27,7 +52,15 @@ async function getUsers() {
       return [];
     }
     
-    return data || [];
+    // Transformer les données de Supabase vers le format de l'application
+    const users = (data || []).map(user => ({
+      email: user.email,
+      displayName: user.display_name, // Conversion du snake_case vers camelCase
+      isAdmin: user.is_admin // Conversion du snake_case vers camelCase
+    }));
+    
+    console.log('Utilisateurs récupérés:', users);
+    return users;
   } catch (error) {
     console.error('Erreur lors de la récupération des utilisateurs:', error);
     return [];
@@ -36,6 +69,8 @@ async function getUsers() {
 
 async function saveUsers(users) {
   try {
+    console.log('Sauvegarde des utilisateurs:', users);
+    
     // Supprimer tous les utilisateurs existants
     const { error: deleteError } = await supabase
       .from('users')
@@ -49,14 +84,26 @@ async function saveUsers(users) {
     
     // Insérer les nouveaux utilisateurs
     if (users.length > 0) {
-      const { error: insertError } = await supabase
+      // Transformer les données pour correspondre au schéma Supabase
+      const usersToInsert = users.map(user => ({
+        email: user.email,
+        display_name: user.displayName, // Notez le underscore
+        is_admin: user.isAdmin // Notez le underscore
+      }));
+      
+      console.log('Données à insérer:', usersToInsert);
+      
+      const { data, error: insertError } = await supabase
         .from('users')
-        .insert(users);
+        .insert(usersToInsert)
+        .select();
       
       if (insertError) {
         console.error('Erreur lors de l\'insertion des utilisateurs:', insertError);
         return false;
       }
+      
+      console.log('Utilisateurs insérés avec succès:', data);
     }
     
     return true;
@@ -174,6 +221,7 @@ async function saveAllData(users, availabilities) {
 
 module.exports = {
   supabase,
+  testConnection,
   getUsers,
   saveUsers,
   getAvailabilities,

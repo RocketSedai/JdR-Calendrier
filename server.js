@@ -2,7 +2,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
-const { getAllData, saveUsers, saveAvailabilities, saveAllData } = require('./supabase');
+const { getAllData, saveUsers, saveAvailabilities, saveAllData, testConnection } = require('./supabase');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -53,6 +53,33 @@ app.get('/health', (req, res) => {
     environment: NODE_ENV,
     uptime: process.uptime()
   });
+});
+
+// Test de connexion Supabase
+app.get('/test-supabase', async (req, res) => {
+  try {
+    const isConnected = await testConnection();
+    if (isConnected) {
+      res.json({ 
+        status: 'OK', 
+        message: 'Connexion Supabase réussie',
+        timestamp: new Date().toISOString()
+      });
+    } else {
+      res.status(500).json({ 
+        status: 'ERROR', 
+        message: 'Erreur de connexion Supabase',
+        timestamp: new Date().toISOString()
+      });
+    }
+  } catch (error) {
+    res.status(500).json({ 
+      status: 'ERROR', 
+      message: 'Erreur lors du test Supabase',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // GET - Récupérer toutes les données
@@ -209,11 +236,14 @@ app.use('*', (req, res) => {
 });
 
 // Démarrage du serveur
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, async () => {
   console.log(`🚀 Serveur démarré sur le port ${PORT}`);
   console.log(`🌍 Environnement: ${NODE_ENV}`);
   console.log(`📊 Interface admin: http://localhost:${PORT}/admin`);
   console.log(`💚 Health check: http://localhost:${PORT}/health`);
+  
+  // Test de connexion Supabase
+  await testConnection();
 });
 
 // Gestion gracieuse de l'arrêt
