@@ -427,33 +427,6 @@
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script>
-    // Vérification que React est chargé
-    if (typeof React === 'undefined') {
-      console.error('❌ React n\'est pas chargé');
-      document.getElementById('root').innerHTML = `
-        <div style="text-align: center; padding: 2rem; color: #e53e3e;">
-          <h1>⌛ Calendrier JDR</h1>
-          <p>❌ Erreur : React n\'est pas chargé</p>
-          <button onclick="window.location.reload()" style="margin-top: 1rem;">🔄 Recharger la page</button>
-        </div>
-      `;
-    } else {
-      console.log('✅ React chargé avec succès');
-    }
-    
-    if (typeof ReactDOM === 'undefined') {
-      console.error('❌ ReactDOM n\'est pas chargé');
-      document.getElementById('root').innerHTML = `
-        <div style="text-align: center; padding: 2rem; color: #e53e3e;">
-          <h1>⌛ Calendrier JDR</h1>
-          <p>❌ Erreur : ReactDOM n\'est pas chargé</p>
-          <button onclick="window.location.reload()" style="margin-top: 1rem;">🔄 Recharger la page</button>
-        </div>
-      `;
-    } else {
-      console.log('✅ ReactDOM chargé avec succès');
-    }
-    
     const { useState } = React;
 
     // Fonctions utilitaires pour gérer les cookies
@@ -838,7 +811,7 @@
                     className: user.role === 'mj' ? "danger-button" : "admin-button"
                   }, user.role === 'mj' ? "Retirer MJ" : "Rendre MJ"),
                   user.email !== currentUser.email && currentUser.role === 'admin' && React.createElement("button", {
-                    onClick: () => onDeleteUser(user.email),
+                    onClick: () => handleDeleteUser(user),
                     className: "danger-button"
                   }, deleteConfirm === user.email ? "Confirmer suppression" : "Supprimer")
                 )
@@ -868,8 +841,6 @@
     }
 
     function App() {
-      console.log('🎯 Composant App initialisé');
-      
       const [user, setUser] = useState(null);
       const [step, setStep] = useState("login");
       const [year, setYear] = useState(new Date().getFullYear());
@@ -905,35 +876,23 @@
       }, []);
 
       function handleLogin(email) {
-        console.log('🔐 Tentative de connexion pour:', email);
-        console.log('📊 Utilisateurs existants:', users);
-        
         let existing = users.find(u => u.email === email);
         if (existing) {
-          console.log('✅ Utilisateur existant trouvé:', existing);
           setUser(existing);
           setStep(existing.displayName ? "month" : "pseudo");
         } else {
-          console.log('🆕 Nouvel utilisateur créé');
-          // Pour un nouvel utilisateur, on définit le rôle après avoir sauvegardé
-          setUser({ email, displayName: "" });
+          setUser({ email, displayName: "", role: users.length === 0 ? 'admin' : 'user' });
           setStep("pseudo");
         }
       }
 
       async function handleSetPseudo(pseudo) {
-        console.log('✏️ Définition du pseudo:', pseudo);
-        console.log('👤 Utilisateur actuel:', user);
-        console.log('📊 Utilisateurs existants:', users);
-        
         const existing = users.find(u => u.email === user.email);
         const newUser = {
           ...user,
           displayName: pseudo,
           role: existing ? existing.role : (users.length === 0 ? 'admin' : 'user')
         };
-        
-        console.log('🆕 Nouvel utilisateur à créer:', newUser);
         setUser(newUser);
         
         let newUsers;
@@ -943,21 +902,14 @@
           newUsers = [...users, newUser];
         }
         
-        console.log('📝 Liste des utilisateurs mise à jour:', newUsers);
         setUsers(newUsers);
         
         // Sauvegarder sur le serveur
-        console.log('💾 Sauvegarde sur le serveur...');
         const result = await saveUsers(newUsers);
-        console.log('📡 Résultat de la sauvegarde:', result);
-        
         if (!result.success) {
-          console.error('❌ Erreur de sauvegarde:', result.message);
           alert('Erreur lors de la sauvegarde: ' + result.message);
-          return; // Ne pas continuer si la sauvegarde échoue
         }
         
-        console.log('✅ Sauvegarde réussie, passage à l\'étape suivante');
         setStep("month");
       }
 
@@ -1099,149 +1051,60 @@
         );
       }
 
-      try {
-        console.log('🎭 Rendu de l\'étape:', step);
-        console.log('👤 Utilisateur:', user);
-        console.log('📊 Utilisateurs:', users);
-        console.log('⏳ Chargement:', loading);
-        console.log('❌ Erreur:', error);
-        
-        if (step === "login") {
-          return React.createElement(LoginPage, { onLogin: handleLogin });
-        }
-        if (step === "pseudo") {
-          return React.createElement(PseudoPage, { 
-            onSetPseudo: handleSetPseudo,
-            currentPseudo: user?.displayName || ""
-          });
-        }
-        if (step === "month") {
-          return React.createElement(MonthSelector, {
-            month, year,
-            onPrev: handlePrevMonth,
-            onNext: handleNextMonth,
-            onSelect: handleShowCalendar,
-            pseudo: currentUser?.displayName || user?.displayName || "",
-            onLogout: handleLogout,
-            isAdmin,
-            onAdmin: handleShowAdmin,
-            onManageUsers: handleManageUsers,
-            onChangePseudo: handleChangePseudo
-          });
-        }
-        if (step === "calendar") {
-          return React.createElement(Calendar, {
-            year, month, days,
-            onChange: (day, value) => setDays(prev => ({ ...prev, [day]: value })),
-            onSave: handleSaveDays,
-            onBack: () => setStep("month"),
-            onPrevMonth: handlePrevMonth,
-            onNextMonth: handleNextMonth
-          });
-        }
-        if (step === "admin") {
-          return React.createElement(AdminView, {
-            year, month,
-            users,
-            availabilities: getAllAvailabilitiesForMonth(),
-            onBack: () => setStep("month")
-          });
-        }
-        if (step === "users") {
-          return React.createElement(UserManagement, {
-            users,
-            currentUser: currentUser || user,
-            onToggleRole: handleToggleRole,
-            onDeleteUser: handleDeleteUser,
-            onBack: () => setStep("month")
-          });
-        }
-        
-        // Si aucune étape ne correspond, afficher une erreur
-        console.error('❌ Étape inconnue:', step);
-        return React.createElement("div", { className: "container" },
-          React.createElement("h1", null, "⌛ Calendrier JDR"),
-          React.createElement("div", { 
-            style: { 
-              textAlign: "center", 
-              padding: "2rem",
-              color: "#e53e3e"
-            } 
-          },
-            React.createElement("p", null, "❌ Erreur d'interface"),
-            React.createElement("p", null, "Étape inconnue: " + step),
-            React.createElement("button", { 
-              onClick: () => {
-                setStep("login");
-                setUser(null);
-              },
-              style: { marginTop: "1rem" }
-            }, "🔄 Recommencer")
-          )
-        );
-      } catch (error) {
-        console.error('❌ Erreur lors du rendu:', error);
-        return React.createElement("div", { className: "container" },
-          React.createElement("h1", null, "⌛ Calendrier JDR"),
-          React.createElement("div", { 
-            style: { 
-              textAlign: "center", 
-              padding: "2rem",
-              color: "#e53e3e"
-            } 
-          },
-            React.createElement("p", null, "❌ Erreur d'interface"),
-            React.createElement("p", null, error.message),
-            React.createElement("button", { 
-              onClick: () => window.location.reload(),
-              style: { marginTop: "1rem" }
-            }, "🔄 Recharger la page")
-          )
-        );
+      if (step === "login") {
+        return React.createElement(LoginPage, { onLogin: handleLogin });
       }
+      if (step === "pseudo") {
+        return React.createElement(PseudoPage, { 
+          onSetPseudo: handleSetPseudo,
+          currentPseudo: user?.displayName || ""
+        });
+      }
+      if (step === "month") {
+        return React.createElement(MonthSelector, {
+          month, year,
+          onPrev: handlePrevMonth,
+          onNext: handleNextMonth,
+          onSelect: handleShowCalendar,
+          pseudo: currentUser?.displayName || user?.displayName || "",
+          onLogout: handleLogout,
+          isAdmin,
+          onAdmin: handleShowAdmin,
+          onManageUsers: handleManageUsers,
+          onChangePseudo: handleChangePseudo
+        });
+      }
+      if (step === "calendar") {
+        return React.createElement(Calendar, {
+          year, month, days,
+          onChange: (day, value) => setDays(prev => ({ ...prev, [day]: value })),
+          onSave: handleSaveDays,
+          onBack: () => setStep("month"),
+          onPrevMonth: handlePrevMonth,
+          onNextMonth: handleNextMonth
+        });
+      }
+      if (step === "admin") {
+        return React.createElement(AdminView, {
+          year, month,
+          users,
+          availabilities: getAllAvailabilitiesForMonth(),
+          onBack: () => setStep("month")
+        });
+      }
+      if (step === "users") {
+        return React.createElement(UserManagement, {
+          users,
+          currentUser: currentUser || user,
+          onToggleRole: handleToggleRole,
+          onDeleteUser: handleDeleteUser,
+          onBack: () => setStep("month")
+        });
+      }
+      return null;
     }
 
-    // Gestion d'erreur globale pour React
-    const rootElement = document.getElementById("root");
-    
-    if (!rootElement) {
-      console.error('❌ Élément #root non trouvé dans le DOM');
-      document.body.innerHTML = `
-        <div style="text-align: center; padding: 2rem; color: #e53e3e;">
-          <h1>⌛ Calendrier JDR</h1>
-          <p>❌ Erreur : Élément #root manquant</p>
-          <button onclick="window.location.reload()" style="margin-top: 1rem;">🔄 Recharger la page</button>
-        </div>
-      `;
-    } else {
-      console.log('✅ Élément #root trouvé');
-      const root = ReactDOM.createRoot(rootElement);
-      
-      try {
-        console.log('🚀 Démarrage de l\'application...');
-        root.render(React.createElement(App));
-        console.log('✅ Application rendue avec succès');
-      } catch (error) {
-        console.error('❌ Erreur lors du rendu de l\'application:', error);
-        root.render(React.createElement("div", { className: "container" },
-          React.createElement("h1", null, "⌛ Calendrier JDR"),
-          React.createElement("div", { 
-            style: { 
-              textAlign: "center", 
-              padding: "2rem",
-              color: "#e53e3e"
-            } 
-          },
-            React.createElement("p", null, "❌ Erreur de démarrage"),
-            React.createElement("p", null, error.message),
-            React.createElement("button", { 
-              onClick: () => window.location.reload(),
-              style: { marginTop: "1rem" }
-            }, "🔄 Recharger la page")
-          )
-        ));
-      }
-    }
+    ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
   </script>
 </body>
 </html>
