@@ -2,10 +2,10 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
+const { getAllData, saveUsers, saveAvailabilities, saveAllData } = require('./supabase');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DATA_FILE = 'data.json';
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // Middleware
@@ -21,24 +21,22 @@ app.use(express.static('.', {
   maxAge: NODE_ENV === 'production' ? '1h' : 0
 }));
 
-// Fonction pour lire les données
-function readData() {
+// Fonction pour lire les données depuis Supabase
+async function readData() {
   try {
-    if (fs.existsSync(DATA_FILE)) {
-      const data = fs.readFileSync(DATA_FILE, 'utf8');
-      return JSON.parse(data);
-    }
+    const data = await getAllData();
+    return data;
   } catch (error) {
     console.error('Erreur lors de la lecture des données:', error);
+    return { users: [], availabilities: {} };
   }
-  return { users: [], availabilities: {} };
 }
 
-// Fonction pour écrire les données
-function writeData(data) {
+// Fonction pour écrire les données vers Supabase
+async function writeData(data) {
   try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-    return true;
+    const result = await saveAllData(data.users, data.availabilities);
+    return result;
   } catch (error) {
     console.error('Erreur lors de l\'écriture des données:', error);
     return false;
@@ -58,9 +56,9 @@ app.get('/health', (req, res) => {
 });
 
 // GET - Récupérer toutes les données
-app.get('/api/data', (req, res) => {
+app.get('/api/data', async (req, res) => {
   try {
-    const data = readData();
+    const data = await readData();
     res.json(data);
   } catch (error) {
     console.error('Erreur API /api/data:', error);
@@ -69,17 +67,15 @@ app.get('/api/data', (req, res) => {
 });
 
 // POST - Sauvegarder les utilisateurs
-app.post('/api/users', (req, res) => {
+app.post('/api/users', async (req, res) => {
   try {
     const { users } = req.body;
     if (!users || !Array.isArray(users)) {
       return res.status(400).json({ success: false, message: 'Données utilisateurs invalides' });
     }
     
-    const data = readData();
-    data.users = users;
-    
-    if (writeData(data)) {
+    const result = await saveUsers(users);
+    if (result) {
       res.json({ success: true, message: 'Utilisateurs sauvegardés' });
     } else {
       res.status(500).json({ success: false, message: 'Erreur lors de la sauvegarde' });
@@ -91,17 +87,15 @@ app.post('/api/users', (req, res) => {
 });
 
 // POST - Sauvegarder les disponibilités
-app.post('/api/availabilities', (req, res) => {
+app.post('/api/availabilities', async (req, res) => {
   try {
     const { availabilities } = req.body;
     if (!availabilities || typeof availabilities !== 'object') {
       return res.status(400).json({ success: false, message: 'Données de disponibilités invalides' });
     }
     
-    const data = readData();
-    data.availabilities = availabilities;
-    
-    if (writeData(data)) {
+    const result = await saveAvailabilities(availabilities);
+    if (result) {
       res.json({ success: true, message: 'Disponibilités sauvegardées' });
     } else {
       res.status(500).json({ success: false, message: 'Erreur lors de la sauvegarde' });
@@ -113,7 +107,7 @@ app.post('/api/availabilities', (req, res) => {
 });
 
 // POST - Sauvegarder toutes les données
-app.post('/api/save', (req, res) => {
+app.post('/api/save', async (req, res) => {
   try {
     const { users, availabilities } = req.body;
     if (!users || !Array.isArray(users)) {
@@ -123,9 +117,8 @@ app.post('/api/save', (req, res) => {
       return res.status(400).json({ success: false, message: 'Données de disponibilités invalides' });
     }
     
-    const data = { users, availabilities };
-    
-    if (writeData(data)) {
+    const result = await saveAllData(users, availabilities);
+    if (result) {
       res.json({ success: true, message: 'Données sauvegardées' });
     } else {
       res.status(500).json({ success: false, message: 'Erreur lors de la sauvegarde' });
@@ -137,8 +130,8 @@ app.post('/api/save', (req, res) => {
 });
 
 // GET - Afficher les données dans le navigateur
-app.get('/admin', (req, res) => {
-  const data = readData();
+app.get('/admin', async (req, res) => {
+  const data = await readData();
   const html = `
     <!DOCTYPE html>
     <html lang="fr">
