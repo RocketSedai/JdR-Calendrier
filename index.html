@@ -891,8 +891,20 @@
       function handleLogin(email) {
         let existing = users.find(u => u.email === email);
         if (existing) {
-          setUser(existing);
-          setStep(existing.displayName ? "month" : "pseudo");
+          // Vérifier si l'utilisateur existant a besoin d'une promotion automatique
+          let updatedUser = { ...existing };
+          
+          // Si c'est le premier utilisateur avec role admin, le promouvoir en superadmin
+          const superAdmins = users.filter(u => u.role === 'superadmin');
+          const admins = users.filter(u => u.role === 'admin');
+          
+          if (superAdmins.length === 0 && existing.role === 'admin') {
+            updatedUser.role = 'superadmin';
+            console.log('🌟 Promotion automatique en Super Admin pour:', email);
+          }
+          
+          setUser(updatedUser);
+          setStep(updatedUser.displayName ? "month" : "pseudo");
         } else {
           // Nouvel utilisateur - déterminer le rôle basé sur l'ordre d'arrivée
           let role = 'user';
@@ -914,6 +926,13 @@
         let role = user.role;
         if (existing) {
           role = existing.role; // Garder le rôle existant si l'utilisateur existe déjà
+          
+          // Vérifier la promotion automatique
+          const superAdmins = users.filter(u => u.role === 'superadmin');
+          if (superAdmins.length === 0 && role === 'admin') {
+            role = 'superadmin';
+            console.log('🌟 Promotion automatique en Super Admin lors de la mise à jour du pseudo');
+          }
         }
         
         const newUser = {

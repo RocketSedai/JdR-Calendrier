@@ -32,10 +32,44 @@ async function testConnection() {
     }
     
     console.log('✅ Connexion Supabase réussie');
+    
+    // Tentative de migration automatique
+    await migrateUsersToRoleSystem();
+    
     return true;
   } catch (error) {
     console.error('❌ Erreur lors du test de connexion:', error);
     return false;
+  }
+}
+
+// Migration automatique des utilisateurs vers le système de rôles
+async function migrateUsersToRoleSystem() {
+  try {
+    console.log('🔄 Vérification de la migration vers le système de rôles...');
+    
+    // Vérifier si la colonne role existe
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('*')
+      .limit(1);
+    
+    if (error) {
+      console.log('ℹ️ Migration impossible, table users non accessible');
+      return;
+    }
+    
+    // Si des utilisateurs existent et n'ont pas de role mais ont is_admin
+    if (users && users.length > 0 && users[0].hasOwnProperty('is_admin') && !users[0].hasOwnProperty('role')) {
+      console.log('🔄 Migration nécessaire - ajout de la colonne role');
+      
+      // Cette migration sera gérée côté base de données
+      // L'application continuera à fonctionner avec la logique de fallback
+    }
+    
+    console.log('✅ Système de rôles vérifié');
+  } catch (error) {
+    console.log('ℹ️ Vérification migration ignorée:', error.message);
   }
 }
 
@@ -56,7 +90,8 @@ async function getUsers() {
     const users = (data || []).map(user => ({
       email: user.email,
       displayName: user.display_name, // Conversion du snake_case vers camelCase
-      role: user.role || 'user' // Nouveau système de rôles
+      // Migration automatique : si role n'existe pas, utiliser is_admin
+      role: user.role || (user.is_admin ? 'admin' : 'user')
     }));
     
     console.log('Utilisateurs récupérés:', users);
