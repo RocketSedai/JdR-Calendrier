@@ -632,10 +632,10 @@
           ),
           React.createElement("div", { className: "actions" },
             React.createElement("button", { onClick: onSelect }, "⌛ Voir le calendrier"),
-            isAdmin &&             React.createElement("button", { 
+            isAdmin && React.createElement("button", { 
               onClick: onAdmin,
               className: "admin-button"
-            }, "👑 Vue admin"),
+            }, "👑 Vue Maître du Jeu"),
             isAdmin && React.createElement("button", { 
               onClick: onManageUsers,
               className: "admin-button"
@@ -651,13 +651,18 @@
       { value: "unavailable", label: "❌", text: "Indisponible" },
     ];
 
-    function Calendar({ year, month, days, onChange, onSave, onBack }) {
+    function Calendar({ year, month, days, onChange, onSave, onBack, onPrevMonth, onNextMonth }) {
       const firstDay = new Date(year, month, 1).getDay();
       const nbDays = getDaysInMonth(year, month);
       const offset = (firstDay + 6) % 7;
 
       return React.createElement("div", { className: "container" },
         React.createElement("h3", null, "📅 Disponibilités pour ", MONTHS[month], " ", year),
+        React.createElement("div", { className: "month-nav" },
+          React.createElement("button", { onClick: onPrevMonth }, "‹"),
+          React.createElement("div", { className: "month-display" }, MONTHS[month], " ", year),
+          React.createElement("button", { onClick: onNextMonth }, "›")
+        ),
         React.createElement("div", { className: "calendar-container" },
           React.createElement("table", { className: "calendar-table" },
             React.createElement("thead", null,
@@ -717,16 +722,28 @@
     function AdminView({ year, month, users, availabilities, onBack }) {
       const nbDays = getDaysInMonth(year, month);
       
+      // Fonction pour obtenir le jour de la semaine
+      function getDayName(day) {
+        const date = new Date(year, month, day);
+        const days = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+        return days[date.getDay()];
+      }
+      
       return React.createElement("div", { className: "container" },
-        React.createElement("h3", null, "👤 Vue admin - ", MONTHS[month], " ", year),
+        React.createElement("h3", null, "👤 Vue Maître du Jeu - ", MONTHS[month], " ", year),
         React.createElement("div", { className: "admin-table-container" },
           React.createElement("table", { className: "admin-table" },
             React.createElement("thead", null,
               React.createElement("tr", null,
                 React.createElement("th", { className: "player-name" }, "Joueur"),
-                Array.from({ length: nbDays }).map((_, i) =>
-                  React.createElement("th", { key: i + 1 }, i + 1)
-                )
+                Array.from({ length: nbDays }).map((_, i) => {
+                  const day = i + 1;
+                  const dayName = getDayName(day);
+                  return React.createElement("th", { key: day }, 
+                    React.createElement("div", null, dayName),
+                    React.createElement("div", { style: { fontSize: "0.8rem", opacity: 0.7 } }, day)
+                  );
+                })
               )
             ),
             React.createElement("tbody", null,
@@ -789,14 +806,18 @@
                 React.createElement("div", { className: "user-info" },
                   React.createElement("div", null, user.displayName),
                   React.createElement("div", { className: "user-email" }, user.email),
-                  user.isAdmin && React.createElement("div", { style: { color: "#38a169", fontSize: "0.8rem" } }, "👑 Admin")
+                  user.role === 'admin' && React.createElement("div", { style: { color: "#38a169", fontSize: "0.8rem" } }, "👑 Admin"),
+                  user.role === 'mj' && React.createElement("div", { style: { color: "#d69e2e", fontSize: "0.8rem" } }, "🎭 Maître du Jeu")
                 ),
                 React.createElement("div", { className: "user-actions" },
                   user.email !== currentUser.email && React.createElement("button", {
                     onClick: () => onToggleAdmin(user.email),
-                    className: user.isAdmin ? "danger-button" : "admin-button"
-                  }, user.isAdmin ? "Retirer admin" : "Rendre admin"),
-                  user.email !== currentUser.email && React.createElement("button", {
+                    className: user.role === 'user' ? "admin-button" : "danger-button"
+                  }, user.role === 'user' ? "Rendre MJ" : 
+                     user.role === 'mj' ? "Rendre Admin" : "Retirer Admin"),
+                  user.email !== currentUser.email && 
+                  !(currentUser.role === 'mj' && user.role === 'admin') &&
+                  React.createElement("button", {
                     onClick: () => handleDeleteUser(user),
                     className: "danger-button"
                   }, deleteConfirm === user.email ? "Confirmer suppression" : "Supprimer")
@@ -839,7 +860,8 @@
 
       // Récupérer les informations à jour de l'utilisateur courant
       const currentUser = user ? users.find(u => u.email === user.email) || user : null;
-      const isAdmin = currentUser && currentUser.isAdmin;
+      const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'mj');
+      const isSuperAdmin = currentUser && currentUser.role === 'admin';
 
       // Charger les données au démarrage
       React.useEffect(() => {
@@ -866,17 +888,20 @@
           setUser(existing);
           setStep(existing.displayName ? "month" : "pseudo");
         } else {
-          setUser({ email, displayName: "", isAdmin: users.length === 0 });
+          const role = users.length === 0 ? 'admin' : 'user';
+          setUser({ email, displayName: "", role: role });
           setStep("pseudo");
         }
       }
 
       async function handleSetPseudo(pseudo) {
         const existing = users.find(u => u.email === user.email);
+        // Premier utilisateur = admin, autres = user
+        const role = users.length === 0 ? 'admin' : (existing ? existing.role : 'user');
         const newUser = {
           ...user,
           displayName: pseudo,
-          isAdmin: existing ? existing.isAdmin : users.length === 0
+          role: role
         };
         setUser(newUser);
         
@@ -952,9 +977,17 @@
       }
 
       async function handleToggleAdmin(email) {
-        const newUsers = users.map(u => 
-          u.email === email ? { ...u, isAdmin: !u.isAdmin } : u
-        );
+        const newUsers = users.map(u => {
+          if (u.email === email) {
+            // Cycle: user -> mj -> admin -> user
+            let newRole = 'user';
+            if (u.role === 'user') newRole = 'mj';
+            else if (u.role === 'mj') newRole = 'admin';
+            else if (u.role === 'admin') newRole = 'user';
+            return { ...u, role: newRole };
+          }
+          return u;
+        });
         setUsers(newUsers);
         
         // Sauvegarder sur le serveur
@@ -1064,7 +1097,9 @@
           year, month, days,
           onChange: (day, value) => setDays(prev => ({ ...prev, [day]: value })),
           onSave: handleSaveDays,
-          onBack: () => setStep("month")
+          onBack: () => setStep("month"),
+          onPrevMonth: handlePrevMonth,
+          onNextMonth: handleNextMonth
         });
       }
       if (step === "admin") {
