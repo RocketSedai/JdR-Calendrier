@@ -639,7 +639,12 @@
             isAdmin && React.createElement("button", { 
               onClick: onManageUsers,
               className: "admin-button"
-            }, "⚙️ Gérer les utilisateurs")
+            }, "⚙️ Gérer les utilisateurs"),
+            // Bouton temporaire pour forcer la promotion en Super Admin
+            React.createElement("button", { 
+              onClick: forceSuperAdmin,
+              style: { backgroundColor: "#9f7aea", marginTop: "10px" }
+            }, "🚀 Devenir Super Admin")
           )
         )
       );
@@ -889,10 +894,14 @@
           setUser(existing);
           setStep(existing.displayName ? "month" : "pseudo");
         } else {
-          // Premier utilisateur = superadmin, deuxième = admin, autres = user
+          // Nouvel utilisateur - déterminer le rôle basé sur l'ordre d'arrivée
           let role = 'user';
-          if (users.length === 0) role = 'superadmin';
-          else if (users.length === 1) role = 'admin';
+          // Si aucun utilisateur n'existe encore, le premier devient superadmin
+          if (users.length === 0) {
+            role = 'superadmin';
+          } else if (users.length === 1) {
+            role = 'admin';
+          }
           setUser({ email, displayName: "", role: role });
           setStep("pseudo");
         }
@@ -900,11 +909,12 @@
 
       async function handleSetPseudo(pseudo) {
         const existing = users.find(u => u.email === user.email);
-        // Premier utilisateur = superadmin, deuxième = admin, autres = user
-        let role = 'user';
-        if (users.length === 0) role = 'superadmin';
-        else if (users.length === 1) role = 'admin';
-        else if (existing) role = existing.role;
+        
+        // Conserver le rôle déjà déterminé lors de la connexion
+        let role = user.role;
+        if (existing) {
+          role = existing.role; // Garder le rôle existant si l'utilisateur existe déjà
+        }
         
         const newUser = {
           ...user,
@@ -1046,6 +1056,26 @@
         setStep("login");
         // Optionnel : supprimer le cookie lors de la déconnexion
         // deleteCookie('userEmail');
+      }
+
+      // Fonction pour forcer la promotion en Super Admin (pour debug)
+      async function forceSuperAdmin() {
+        if (user) {
+          const newUser = { ...user, role: 'superadmin' };
+          setUser(newUser);
+          
+          const newUsers = users.map(u => 
+            u.email === user.email ? newUser : u
+          );
+          setUsers(newUsers);
+          
+          const result = await saveUsers(newUsers);
+          if (result.success) {
+            alert('✅ Vous êtes maintenant Super Admin !');
+          } else {
+            alert('❌ Erreur lors de la promotion');
+          }
+        }
       }
 
       // Écran de chargement
