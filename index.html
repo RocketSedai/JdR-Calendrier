@@ -640,11 +640,17 @@
               onClick: onManageUsers,
               className: "admin-button"
             }, "⚙️ Gérer les utilisateurs"),
-            // Bouton temporaire pour forcer la promotion en Super Admin
-            React.createElement("button", { 
-              onClick: forceSuperAdmin,
-              style: { backgroundColor: "#9f7aea", marginTop: "10px" }
-            }, "🚀 Devenir Super Admin")
+            // Boutons temporaires pour debug
+            React.createElement("div", { style: { marginTop: "10px" } },
+              React.createElement("button", { 
+                onClick: forceSuperAdmin,
+                style: { backgroundColor: "#9f7aea", margin: "5px" }
+              }, "🚀 Devenir Super Admin"),
+              React.createElement("button", { 
+                onClick: resetAllUsers,
+                style: { backgroundColor: "#e53e3e", margin: "5px" }
+              }, "🗑️ Reset complet")
+            )
           )
         )
       );
@@ -875,11 +881,15 @@
           try {
             setLoading(true);
             setError(null);
+            console.log('🔄 Chargement des données...');
             const data = await fetchData();
+            console.log('📊 Données reçues:', data);
+            console.log('👥 Utilisateurs chargés:', data.users);
             setUsers(data.users || []);
             setAvailabilities(data.availabilities || {});
+            console.log('✅ Données chargées avec succès');
           } catch (err) {
-            console.error('Erreur lors du chargement:', err);
+            console.error('❌ Erreur lors du chargement:', err);
             setError('Erreur de connexion au serveur');
           } finally {
             setLoading(false);
@@ -889,14 +899,20 @@
       }, []);
 
       function handleLogin(email) {
+        console.log('🔍 Connexion utilisateur:', email);
+        console.log('👥 Utilisateurs existants:', users.length);
+        console.log('📋 Liste des utilisateurs:', users.map(u => ({ email: u.email, role: u.role })));
+        
         let existing = users.find(u => u.email === email);
+        console.log('👤 Utilisateur existant trouvé:', existing);
+        
         if (existing) {
           // Vérifier si l'utilisateur existant a besoin d'une promotion automatique
           let updatedUser = { ...existing };
           
-          // Si c'est le premier utilisateur avec role admin, le promouvoir en superadmin
+          // Si aucun Super Admin n'existe et que c'est un admin, le promouvoir
           const superAdmins = users.filter(u => u.role === 'superadmin');
-          const admins = users.filter(u => u.role === 'admin');
+          console.log('🌟 Super Admins existants:', superAdmins.length);
           
           if (superAdmins.length === 0 && existing.role === 'admin') {
             updatedUser.role = 'superadmin';
@@ -906,32 +922,51 @@
           setUser(updatedUser);
           setStep(updatedUser.displayName ? "month" : "pseudo");
         } else {
-          // Nouvel utilisateur - déterminer le rôle basé sur l'ordre d'arrivée
+          // Nouvel utilisateur - déterminer le rôle
           let role = 'user';
-          // Si aucun utilisateur n'existe encore, le premier devient superadmin
-          if (users.length === 0) {
-            role = 'superadmin';
-          } else if (users.length === 1) {
-            role = 'admin';
+          
+          // Vérifier s'il y a déjà des Super Admins
+          const superAdmins = users.filter(u => u.role === 'superadmin');
+          const admins = users.filter(u => u.role === 'admin');
+          
+          console.log('🔢 Nombre de Super Admins:', superAdmins.length);
+          console.log('🔢 Nombre d\'Admins:', admins.length);
+          
+          if (superAdmins.length === 0) {
+            role = 'superadmin'; // Premier utilisateur ou premier admin devient superadmin
+            console.log('🌟 Assignation Super Admin - aucun Super Admin existant');
+          } else if (admins.length === 0) {
+            role = 'admin'; // Deuxième utilisateur devient admin si pas d'admin existant
+            console.log('👑 Assignation Admin - aucun Admin existant');
           }
+          
+          console.log('📝 Rôle assigné:', role);
           setUser({ email, displayName: "", role: role });
           setStep("pseudo");
         }
       }
 
       async function handleSetPseudo(pseudo) {
+        console.log('📝 Définition du pseudo:', pseudo);
+        console.log('👤 Utilisateur actuel:', user);
+        
         const existing = users.find(u => u.email === user.email);
+        console.log('👤 Utilisateur existant dans la liste:', existing);
         
         // Conserver le rôle déjà déterminé lors de la connexion
         let role = user.role;
+        console.log('📋 Rôle initial:', role);
+        
         if (existing) {
-          role = existing.role; // Garder le rôle existant si l'utilisateur existe déjà
-          
-          // Vérifier la promotion automatique
+          // Si l'utilisateur existe déjà, garder son rôle existant
+          role = existing.role;
+          console.log('📋 Rôle existant conservé:', role);
+        } else {
+          // Nouvel utilisateur - vérifier s'il doit être promu
           const superAdmins = users.filter(u => u.role === 'superadmin');
-          if (superAdmins.length === 0 && role === 'admin') {
+          if (superAdmins.length === 0 && role !== 'superadmin') {
             role = 'superadmin';
-            console.log('🌟 Promotion automatique en Super Admin lors de la mise à jour du pseudo');
+            console.log('🌟 Promotion en Super Admin lors de la création');
           }
         }
         
@@ -940,21 +975,30 @@
           displayName: pseudo,
           role: role
         };
+        
+        console.log('💾 Nouvel utilisateur à sauvegarder:', newUser);
         setUser(newUser);
         
         let newUsers;
         if (existing) {
           newUsers = users.map(u => u.email === user.email ? newUser : u);
+          console.log('🔄 Mise à jour utilisateur existant');
         } else {
           newUsers = [...users, newUser];
+          console.log('➕ Ajout nouvel utilisateur');
         }
         
+        console.log('👥 Liste des utilisateurs mise à jour:', newUsers.map(u => ({ email: u.email, role: u.role })));
         setUsers(newUsers);
         
         // Sauvegarder sur le serveur
+        console.log('💾 Sauvegarde en cours...');
         const result = await saveUsers(newUsers);
         if (!result.success) {
+          console.error('❌ Erreur de sauvegarde:', result.message);
           alert('Erreur lors de la sauvegarde: ' + result.message);
+        } else {
+          console.log('✅ Sauvegarde réussie');
         }
         
         setStep("month");
@@ -1091,8 +1135,28 @@
           const result = await saveUsers(newUsers);
           if (result.success) {
             alert('✅ Vous êtes maintenant Super Admin !');
+            console.log('🌟 Promotion forcée réussie');
           } else {
             alert('❌ Erreur lors de la promotion');
+            console.error('❌ Erreur promotion forcée:', result.message);
+          }
+        }
+      }
+
+      // Fonction pour réinitialiser complètement (pour debug)
+      async function resetAllUsers() {
+        if (confirm('⚠️ Voulez-vous vraiment supprimer TOUS les utilisateurs ? Cette action est irréversible !')) {
+          console.log('🗑️ Suppression de tous les utilisateurs...');
+          setUsers([]);
+          const result = await saveUsers([]);
+          if (result.success) {
+            alert('✅ Tous les utilisateurs ont été supprimés !');
+            console.log('🗑️ Réinitialisation réussie');
+            // Forcer le rechargement
+            window.location.reload();
+          } else {
+            alert('❌ Erreur lors de la suppression');
+            console.error('❌ Erreur suppression:', result.message);
           }
         }
       }
