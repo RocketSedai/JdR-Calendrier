@@ -635,7 +635,7 @@
             isAdmin && React.createElement("button", { 
               onClick: onAdmin,
               className: "admin-button"
-            }, "👑 Vue Maître du Jeu"),
+            }, isSuperAdmin ? "🌟 Vue Super Admin" : "👑 Vue Maître du Jeu"),
             isAdmin && React.createElement("button", { 
               onClick: onManageUsers,
               className: "admin-button"
@@ -806,17 +806,18 @@
                 React.createElement("div", { className: "user-info" },
                   React.createElement("div", null, user.displayName),
                   React.createElement("div", { className: "user-email" }, user.email),
-                  user.role === 'admin' && React.createElement("div", { style: { color: "#38a169", fontSize: "0.8rem" } }, "👑 Admin"),
-                  user.role === 'mj' && React.createElement("div", { style: { color: "#d69e2e", fontSize: "0.8rem" } }, "🎭 Maître du Jeu")
+                  user.role === 'superadmin' && React.createElement("div", { style: { color: "#9f7aea", fontSize: "0.8rem" } }, "🌟 Super Admin"),
+                  user.role === 'admin' && React.createElement("div", { style: { color: "#d69e2e", fontSize: "0.8rem" } }, "🎭 Maître du Jeu")
                 ),
                 React.createElement("div", { className: "user-actions" },
                   user.email !== currentUser.email && React.createElement("button", {
                     onClick: () => onToggleAdmin(user.email),
                     className: user.role === 'user' ? "admin-button" : "danger-button"
                   }, user.role === 'user' ? "Rendre MJ" : 
-                     user.role === 'mj' ? "Rendre Admin" : "Retirer Admin"),
+                     user.role === 'admin' ? (currentUser.role === 'superadmin' ? "Rendre Super Admin" : "Retirer MJ") :
+                     "Retirer Super Admin"),
                   user.email !== currentUser.email && 
-                  !(currentUser.role === 'mj' && user.role === 'admin') &&
+                  !(currentUser.role === 'admin' && user.role === 'superadmin') &&
                   React.createElement("button", {
                     onClick: () => handleDeleteUser(user),
                     className: "danger-button"
@@ -860,8 +861,8 @@
 
       // Récupérer les informations à jour de l'utilisateur courant
       const currentUser = user ? users.find(u => u.email === user.email) || user : null;
-      const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'mj');
-      const isSuperAdmin = currentUser && currentUser.role === 'admin';
+      const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'superadmin');
+      const isSuperAdmin = currentUser && currentUser.role === 'superadmin';
 
       // Charger les données au démarrage
       React.useEffect(() => {
@@ -888,7 +889,10 @@
           setUser(existing);
           setStep(existing.displayName ? "month" : "pseudo");
         } else {
-          const role = users.length === 0 ? 'admin' : 'user';
+          // Premier utilisateur = superadmin, deuxième = admin, autres = user
+          let role = 'user';
+          if (users.length === 0) role = 'superadmin';
+          else if (users.length === 1) role = 'admin';
           setUser({ email, displayName: "", role: role });
           setStep("pseudo");
         }
@@ -896,8 +900,12 @@
 
       async function handleSetPseudo(pseudo) {
         const existing = users.find(u => u.email === user.email);
-        // Premier utilisateur = admin, autres = user
-        const role = users.length === 0 ? 'admin' : (existing ? existing.role : 'user');
+        // Premier utilisateur = superadmin, deuxième = admin, autres = user
+        let role = 'user';
+        if (users.length === 0) role = 'superadmin';
+        else if (users.length === 1) role = 'admin';
+        else if (existing) role = existing.role;
+        
         const newUser = {
           ...user,
           displayName: pseudo,
@@ -979,11 +987,18 @@
       async function handleToggleAdmin(email) {
         const newUsers = users.map(u => {
           if (u.email === email) {
-            // Cycle: user -> mj -> admin -> user
+            // Cycle: user -> admin -> superadmin -> user (seulement si superadmin)
             let newRole = 'user';
-            if (u.role === 'user') newRole = 'mj';
-            else if (u.role === 'mj') newRole = 'admin';
-            else if (u.role === 'admin') newRole = 'user';
+            if (u.role === 'user') newRole = 'admin';
+            else if (u.role === 'admin') {
+              // Seuls les superadmin peuvent promouvoir en superadmin
+              if (currentUser && currentUser.role === 'superadmin') {
+                newRole = 'superadmin';
+              } else {
+                newRole = 'user';
+              }
+            }
+            else if (u.role === 'superadmin') newRole = 'user';
             return { ...u, role: newRole };
           }
           return u;
