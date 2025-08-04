@@ -134,6 +134,8 @@
       font-weight: 600;
       text-align: center;
       min-width: 80px;
+      font-size: 0.9rem;
+      letter-spacing: 0.5px;
     }
     .calendar-table td {
       padding: 8px;
@@ -232,6 +234,29 @@
       color: #2d3748;
       text-align: left;
       min-width: 120px;
+    }
+    
+    .weekday-header {
+      background: #4c63d2 !important;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #ffffff;
+      padding: 6px 4px !important;
+    }
+    
+    .day-number-header {
+      background: #667eea !important;
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 8px 4px !important;
+    }
+    
+    .weekday-row {
+      border-bottom: 1px solid #4c63d2;
+    }
+    
+    .day-number-row {
+      border-bottom: 2px solid #667eea;
     }
     
     .status-available { color: #38a169; }
@@ -662,13 +687,13 @@
           React.createElement("table", { className: "calendar-table" },
             React.createElement("thead", null,
               React.createElement("tr", null,
-                React.createElement("th", null, "Lun"),
-                React.createElement("th", null, "Mar"),
-                React.createElement("th", null, "Mer"),
-                React.createElement("th", null, "Jeu"),
-                React.createElement("th", null, "Ven"),
-                React.createElement("th", null, "Sam"),
-                React.createElement("th", null, "Dim")
+                React.createElement("th", null, "Lu"),
+                React.createElement("th", null, "Ma"),
+                React.createElement("th", null, "Me"),
+                React.createElement("th", null, "Je"),
+                React.createElement("th", null, "Ve"),
+                React.createElement("th", null, "Sa"),
+                React.createElement("th", null, "Di")
               )
             ),
             React.createElement("tbody", null,
@@ -716,16 +741,34 @@
 
     function AdminView({ year, month, users, availabilities, onBack }) {
       const nbDays = getDaysInMonth(year, month);
+      const dayNames = ["Di", "Lu", "Ma", "Me", "Je", "Ve", "Sa"];
+      
+      // Fonction pour obtenir le jour de la semaine
+      function getDayOfWeek(year, month, day) {
+        const date = new Date(year, month, day);
+        return dayNames[date.getDay()];
+      }
       
       return React.createElement("div", { className: "container" },
         React.createElement("h3", null, "👤 Vue admin - ", MONTHS[month], " ", year),
         React.createElement("div", { className: "admin-table-container" },
           React.createElement("table", { className: "admin-table" },
             React.createElement("thead", null,
-              React.createElement("tr", null,
+              React.createElement("tr", { className: "weekday-row" },
+                React.createElement("th", { className: "player-name" }, ""),
+                Array.from({ length: nbDays }).map((_, i) => {
+                  const day = i + 1;
+                  const dayOfWeek = getDayOfWeek(year, month, day);
+                  return React.createElement("th", { 
+                    key: `weekday-${day}`, 
+                    className: "weekday-header" 
+                  }, dayOfWeek);
+                })
+              ),
+              React.createElement("tr", { className: "day-number-row" },
                 React.createElement("th", { className: "player-name" }, "Joueur"),
                 Array.from({ length: nbDays }).map((_, i) =>
-                  React.createElement("th", { key: i + 1 }, i + 1)
+                  React.createElement("th", { key: i + 1, className: "day-number-header" }, i + 1)
                 )
               )
             ),

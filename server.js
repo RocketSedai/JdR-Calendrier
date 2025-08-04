@@ -292,6 +292,38 @@ app.get('/admin', async (req, res) => {
         .status-maybe { color: #fdcb6e; }
         .status-unavailable { color: #e17055; }
         pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .calendar-grid { 
+          display: grid; 
+          grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); 
+          gap: 8px; 
+          margin-top: 10px; 
+          max-width: 100%; 
+        }
+        .day-item { 
+          display: flex; 
+          flex-direction: column; 
+          align-items: center; 
+          padding: 5px; 
+          border-radius: 4px; 
+          background: #f8f9fa; 
+          border: 1px solid #e9ecef; 
+          min-height: 50px;
+          justify-content: center;
+        }
+        .day-letter { 
+          font-size: 0.7rem; 
+          font-weight: bold; 
+          color: #6c757d; 
+          margin-bottom: 2px; 
+        }
+        .day-number { 
+          font-size: 0.9rem; 
+          font-weight: bold; 
+          margin-bottom: 2px; 
+        }
+        .day-status { 
+          font-size: 0.8rem; 
+        }
       </style>
     </head>
     <body>
@@ -314,15 +346,33 @@ app.get('/admin', async (req, res) => {
           const [email, year, month] = key.split('_');
           const user = data.users.find(u => u.email === email);
           const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
+          const dayNames = ["Di", "Lu", "Ma", "Me", "Je", "Ve", "Sa"];
+          
+          // Fonction pour obtenir le jour de la semaine
+          function getDayOfWeek(year, month, day) {
+            const date = new Date(parseInt(year), parseInt(month), parseInt(day));
+            return dayNames[date.getDay()];
+          }
+          
           return `
             <div class="availability">
-              <strong>${user ? user.displayName : email}</strong> - ${monthNames[parseInt(month)]} ${year}<br>
-              <small>${Object.entries(avail).map(([day, status]) => {
-                const statusClass = status === 'available' ? 'status-available' : 
-                                  status === 'maybe' ? 'status-maybe' : 'status-unavailable';
-                const emoji = status === 'available' ? '✅' : status === 'maybe' ? '❓' : '❌';
-                return `<span class="${statusClass}">${emoji} ${day}</span>`;
-              }).join(' ')}</small>
+              <strong>${user ? user.displayName : email}</strong> - ${monthNames[parseInt(month)]} ${year}
+              <div class="calendar-grid">
+                ${Object.entries(avail).map(([day, status]) => {
+                  const statusClass = status === 'available' ? 'status-available' : 
+                                    status === 'maybe' ? 'status-maybe' : 'status-unavailable';
+                  const emoji = status === 'available' ? '✅' : status === 'maybe' ? '❓' : '❌';
+                  const dayOfWeek = getDayOfWeek(year, month, day);
+                  
+                  return `
+                    <div class="day-item">
+                      <div class="day-letter">${dayOfWeek}</div>
+                      <div class="day-number">${day}</div>
+                      <div class="day-status ${statusClass}">${emoji}</div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
             </div>
           `;
         }).join('')}
