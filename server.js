@@ -281,7 +281,7 @@ app.get('/admin', async (req, res) => {
     <html lang="fr">
     <head>
       <meta charset="UTF-8">
-      <title>Admin - Données Calendrier JDR</title>
+      <title>Interface MJ - Données Calendrier JDR</title>
       <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
         .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
@@ -327,14 +327,14 @@ app.get('/admin', async (req, res) => {
       </style>
     </head>
     <body>
-      <h1>📊 Données Calendrier JDR</h1>
+      <h1>🎲 Interface Maître du jeu - Calendrier JDR</h1>
       
       <div class="section">
         <h2>👥 Utilisateurs (${data.users.length})</h2>
         ${data.users.map(user => `
           <div class="user">
             <strong>${user.displayName}</strong> 
-            <span class="admin">${user.isSuperAdmin ? '🔱 Super Admin' : user.isAdmin ? '👑 Admin' : ''}</span><br>
+            <span class="admin">${user.isSuperAdmin ? '🏰 Maître du donjon' : user.isAdmin ? '🎲 Maître du jeu' : ''}</span><br>
             <small>${user.email}</small>
           </div>
         `).join('')}
@@ -406,7 +406,7 @@ app.use('*', (req, res) => {
 const server = app.listen(PORT, async () => {
   console.log(`🚀 Serveur démarré sur le port ${PORT}`);
   console.log(`🌍 Environnement: ${NODE_ENV}`);
-  console.log(`📊 Interface admin: http://localhost:${PORT}/admin`);
+  console.log(`🎲 Interface MJ: http://localhost:${PORT}/admin`);
   console.log(`💚 Health check: http://localhost:${PORT}/health`);
   
   // Test de connexion Supabase

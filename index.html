@@ -699,11 +699,11 @@
             isAdmin &&             React.createElement("button", { 
               onClick: onAdmin,
               className: "admin-button"
-            }, "👑 Vue admin"),
+            }, "🎲 Vue MJ"),
             isAdmin && React.createElement("button", { 
               onClick: onManageUsers,
               className: "admin-button"
-            }, "⚙️ Gérer les utilisateurs")
+            }, "⚙️ Gérer les joueurs")
           )
         )
       );
@@ -807,7 +807,7 @@
             onClick: onPrevMonth,
             title: "Mois précédent"
           }, "‹"),
-          React.createElement("h3", null, "👤 Vue admin - ", MONTHS[month], " ", year),
+          React.createElement("h3", null, "🎲 Vue Maître du jeu - ", MONTHS[month], " ", year),
           React.createElement("button", { 
             className: "nav-button", 
             onClick: onNextMonth,
@@ -886,7 +886,7 @@
       };
 
       return React.createElement("div", { className: "container" },
-        React.createElement("h3", null, "⚙️ Gestion des utilisateurs"),
+        React.createElement("h3", null, "⚙️ Gestion des joueurs"),
         React.createElement("div", { 
           style: { 
             background: "#f7fafc", 
@@ -899,9 +899,9 @@
           } 
         },
           React.createElement("div", { style: { fontWeight: "bold", marginBottom: "0.5rem" } }, "🔱 Système de droits :"),
-          React.createElement("div", null, "• Super Admin : Droits complets, ne peut être supprimé ou démis"),
-          React.createElement("div", null, "• Admin : Peut gérer les utilisateurs normaux"),
-          React.createElement("div", null, "• Le premier utilisateur du site devient automatiquement Super Admin")
+          React.createElement("div", null, "• Maître du donjon : Droits complets, ne peut être supprimé ou démis"),
+          React.createElement("div", null, "• Maître du jeu : Peut gérer les joueurs"),
+          React.createElement("div", null, "• Le premier utilisateur du site devient automatiquement Maître du donjon")
         ),
         React.createElement("div", { className: "admin-panel" },
           React.createElement("h4", null, "Liste des participants"),
@@ -911,14 +911,14 @@
                 React.createElement("div", { className: "user-info" },
                   React.createElement("div", null, user.displayName),
                   React.createElement("div", { className: "user-email" }, user.email),
-                  user.isSuperAdmin && React.createElement("div", { style: { color: "#d63031", fontSize: "0.8rem", fontWeight: "bold" } }, "🔱 Super Admin"),
-                  user.isAdmin && !user.isSuperAdmin && React.createElement("div", { style: { color: "#38a169", fontSize: "0.8rem" } }, "👑 Admin")
+                  user.isSuperAdmin && React.createElement("div", { style: { color: "#d63031", fontSize: "0.8rem", fontWeight: "bold" } }, "🏰 Maître du donjon"),
+                  user.isAdmin && !user.isSuperAdmin && React.createElement("div", { style: { color: "#38a169", fontSize: "0.8rem" } }, "🎲 Maître du jeu")
                 ),
                 React.createElement("div", { className: "user-actions" },
                   user.email !== currentUser.email && !user.isSuperAdmin && React.createElement("button", {
                     onClick: () => onToggleAdmin(user.email),
                     className: user.isAdmin ? "danger-button" : "admin-button"
-                  }, user.isAdmin ? "Retirer admin" : "Rendre admin"),
+                  }, user.isAdmin ? "Retirer droits MJ" : "Nommer MJ"),
                   user.email !== currentUser.email && !user.isSuperAdmin && React.createElement("button", {
                     onClick: () => handleDeleteUser(user),
                     className: "danger-button"
@@ -1136,12 +1136,12 @@
         
         // Vérifier les permissions
         if (targetUser.isSuperAdmin && !isSuperAdmin) {
-          alert('🚫 Seuls les Super Admins peuvent modifier les droits d\'autres Super Admins');
+          alert('🚫 Seuls les Maîtres du donjon peuvent modifier les droits d\'autres Maîtres du donjon');
           return;
         }
         
         if (targetUser.isSuperAdmin) {
-          alert('🔱 Impossible de retirer les droits d\'admin à un Super Admin');
+          alert('🏰 Impossible de retirer les droits de Maître du jeu à un Maître du donjon');
           return;
         }
         
@@ -1162,12 +1162,12 @@
         
         // Vérifier les permissions
         if (targetUser.isSuperAdmin && !isSuperAdmin) {
-          alert('🚫 Seuls les Super Admins peuvent supprimer d\'autres Super Admins');
+          alert('🚫 Seuls les Maîtres du donjon peuvent supprimer d\'autres Maîtres du donjon');
           return;
         }
         
         if (targetUser.isSuperAdmin) {
-          alert('🔱 Impossible de supprimer un Super Admin');
+          alert('🏰 Impossible de supprimer un Maître du donjon');
           return;
         }
         
