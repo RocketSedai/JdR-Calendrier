@@ -53,41 +53,13 @@ async function getUsers() {
     }
     
     // Transformer les données de Supabase vers le format de l'application
-    const users = (data || []).map(user => {
-      console.log('🔍 Données utilisateur brutes:', user);
-      
-      // Migration automatique : gérer l'ancien et le nouveau système
-      let role = 'user';
-      
-      if (user.role) {
-        // Nouveau système avec colonne role
-        role = user.role;
-      } else if (user.is_admin !== undefined) {
-        // Ancien système avec is_admin
-        role = user.is_admin ? 'admin' : 'user';
-      }
-      
-      const userConverted = {
-        email: user.email,
-        displayName: user.display_name,
-        role: role
-      };
-      
-      console.log('👤 Utilisateur converti:', userConverted);
-      return userConverted;
-    });
+    const users = (data || []).map(user => ({
+      email: user.email,
+      displayName: user.display_name, // Conversion du snake_case vers camelCase
+      isAdmin: user.is_admin // Conversion du snake_case vers camelCase
+    }));
     
-    console.log('👥 Utilisateurs récupérés:', users);
-    
-    // Si aucun Super Admin n'existe, promouvoir le premier admin
-    const superAdmins = users.filter(u => u.role === 'superadmin');
-    const admins = users.filter(u => u.role === 'admin');
-    
-    if (superAdmins.length === 0 && admins.length > 0) {
-      users[users.findIndex(u => u.role === 'admin')].role = 'superadmin';
-      console.log('🌟 Promotion automatique du premier admin en Super Admin');
-    }
-    
+    console.log('Utilisateurs récupérés:', users);
     return users;
   } catch (error) {
     console.error('Erreur lors de la récupération des utilisateurs:', error);
@@ -113,20 +85,11 @@ async function saveUsers(users) {
     // Insérer les nouveaux utilisateurs
     if (users.length > 0) {
       // Transformer les données pour correspondre au schéma Supabase
-      const usersToInsert = users.map(user => {
-        const userToInsert = {
-          email: user.email,
-          display_name: user.displayName
-        };
-        
-        // Essayer d'abord avec la colonne role (nouveau système)
-        // Si ça échoue, utiliser is_admin (ancien système)
-        userToInsert.role = user.role || 'user';
-        userToInsert.is_admin = user.role === 'admin' || user.role === 'superadmin';
-        
-        console.log('💾 Données à sauvegarder:', userToInsert);
-        return userToInsert;
-      });
+      const usersToInsert = users.map(user => ({
+        email: user.email,
+        display_name: user.displayName, // Notez le underscore
+        is_admin: user.isAdmin // Notez le underscore
+      }));
       
       console.log('Données à insérer:', usersToInsert);
       

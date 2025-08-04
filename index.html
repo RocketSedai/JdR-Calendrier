@@ -632,25 +632,14 @@
           ),
           React.createElement("div", { className: "actions" },
             React.createElement("button", { onClick: onSelect }, "⌛ Voir le calendrier"),
-            isAdmin && React.createElement("button", { 
+            isAdmin &&             React.createElement("button", { 
               onClick: onAdmin,
               className: "admin-button"
-            }, isSuperAdmin ? "🌟 Vue Super Admin" : "👑 Vue Maître du Jeu"),
+            }, "👑 Vue admin"),
             isAdmin && React.createElement("button", { 
               onClick: onManageUsers,
               className: "admin-button"
-            }, "⚙️ Gérer les utilisateurs"),
-            // Boutons temporaires pour debug
-            React.createElement("div", { style: { marginTop: "10px" } },
-              React.createElement("button", { 
-                onClick: forceSuperAdmin,
-                style: { backgroundColor: "#9f7aea", margin: "5px" }
-              }, "🚀 Devenir Super Admin"),
-              React.createElement("button", { 
-                onClick: resetAllUsers,
-                style: { backgroundColor: "#e53e3e", margin: "5px" }
-              }, "🗑️ Reset complet")
-            )
+            }, "⚙️ Gérer les utilisateurs")
           )
         )
       );
@@ -662,18 +651,13 @@
       { value: "unavailable", label: "❌", text: "Indisponible" },
     ];
 
-    function Calendar({ year, month, days, onChange, onSave, onBack, onPrevMonth, onNextMonth }) {
+    function Calendar({ year, month, days, onChange, onSave, onBack }) {
       const firstDay = new Date(year, month, 1).getDay();
       const nbDays = getDaysInMonth(year, month);
       const offset = (firstDay + 6) % 7;
 
       return React.createElement("div", { className: "container" },
         React.createElement("h3", null, "📅 Disponibilités pour ", MONTHS[month], " ", year),
-        React.createElement("div", { className: "month-nav" },
-          React.createElement("button", { onClick: onPrevMonth }, "‹"),
-          React.createElement("div", { className: "month-display" }, MONTHS[month], " ", year),
-          React.createElement("button", { onClick: onNextMonth }, "›")
-        ),
         React.createElement("div", { className: "calendar-container" },
           React.createElement("table", { className: "calendar-table" },
             React.createElement("thead", null,
@@ -733,28 +717,16 @@
     function AdminView({ year, month, users, availabilities, onBack }) {
       const nbDays = getDaysInMonth(year, month);
       
-      // Fonction pour obtenir le jour de la semaine
-      function getDayName(day) {
-        const date = new Date(year, month, day);
-        const days = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-        return days[date.getDay()];
-      }
-      
       return React.createElement("div", { className: "container" },
-        React.createElement("h3", null, "👤 Vue Maître du Jeu - ", MONTHS[month], " ", year),
+        React.createElement("h3", null, "👤 Vue admin - ", MONTHS[month], " ", year),
         React.createElement("div", { className: "admin-table-container" },
           React.createElement("table", { className: "admin-table" },
             React.createElement("thead", null,
               React.createElement("tr", null,
                 React.createElement("th", { className: "player-name" }, "Joueur"),
-                Array.from({ length: nbDays }).map((_, i) => {
-                  const day = i + 1;
-                  const dayName = getDayName(day);
-                  return React.createElement("th", { key: day }, 
-                    React.createElement("div", null, dayName),
-                    React.createElement("div", { style: { fontSize: "0.8rem", opacity: 0.7 } }, day)
-                  );
-                })
+                Array.from({ length: nbDays }).map((_, i) =>
+                  React.createElement("th", { key: i + 1 }, i + 1)
+                )
               )
             ),
             React.createElement("tbody", null,
@@ -817,19 +789,14 @@
                 React.createElement("div", { className: "user-info" },
                   React.createElement("div", null, user.displayName),
                   React.createElement("div", { className: "user-email" }, user.email),
-                  user.role === 'superadmin' && React.createElement("div", { style: { color: "#9f7aea", fontSize: "0.8rem" } }, "🌟 Super Admin"),
-                  user.role === 'admin' && React.createElement("div", { style: { color: "#d69e2e", fontSize: "0.8rem" } }, "🎭 Maître du Jeu")
+                  user.isAdmin && React.createElement("div", { style: { color: "#38a169", fontSize: "0.8rem" } }, "👑 Admin")
                 ),
                 React.createElement("div", { className: "user-actions" },
                   user.email !== currentUser.email && React.createElement("button", {
                     onClick: () => onToggleAdmin(user.email),
-                    className: user.role === 'user' ? "admin-button" : "danger-button"
-                  }, user.role === 'user' ? "Rendre MJ" : 
-                     user.role === 'admin' ? (currentUser.role === 'superadmin' ? "Rendre Super Admin" : "Retirer MJ") :
-                     "Retirer Super Admin"),
-                  user.email !== currentUser.email && 
-                  !(currentUser.role === 'admin' && user.role === 'superadmin') &&
-                  React.createElement("button", {
+                    className: user.isAdmin ? "danger-button" : "admin-button"
+                  }, user.isAdmin ? "Retirer admin" : "Rendre admin"),
+                  user.email !== currentUser.email && React.createElement("button", {
                     onClick: () => handleDeleteUser(user),
                     className: "danger-button"
                   }, deleteConfirm === user.email ? "Confirmer suppression" : "Supprimer")
@@ -872,8 +839,7 @@
 
       // Récupérer les informations à jour de l'utilisateur courant
       const currentUser = user ? users.find(u => u.email === user.email) || user : null;
-      const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'superadmin');
-      const isSuperAdmin = currentUser && currentUser.role === 'superadmin';
+      const isAdmin = currentUser && currentUser.isAdmin;
 
       // Charger les données au démarrage
       React.useEffect(() => {
@@ -881,15 +847,11 @@
           try {
             setLoading(true);
             setError(null);
-            console.log('🔄 Chargement des données...');
             const data = await fetchData();
-            console.log('📊 Données reçues:', data);
-            console.log('👥 Utilisateurs chargés:', data.users);
             setUsers(data.users || []);
             setAvailabilities(data.availabilities || {});
-            console.log('✅ Données chargées avec succès');
           } catch (err) {
-            console.error('❌ Erreur lors du chargement:', err);
+            console.error('Erreur lors du chargement:', err);
             setError('Erreur de connexion au serveur');
           } finally {
             setLoading(false);
@@ -899,106 +861,38 @@
       }, []);
 
       function handleLogin(email) {
-        console.log('🔍 Connexion utilisateur:', email);
-        console.log('👥 Utilisateurs existants:', users.length);
-        console.log('📋 Liste des utilisateurs:', users.map(u => ({ email: u.email, role: u.role })));
-        
         let existing = users.find(u => u.email === email);
-        console.log('👤 Utilisateur existant trouvé:', existing);
-        
         if (existing) {
-          // Vérifier si l'utilisateur existant a besoin d'une promotion automatique
-          let updatedUser = { ...existing };
-          
-          // Si aucun Super Admin n'existe et que c'est un admin, le promouvoir
-          const superAdmins = users.filter(u => u.role === 'superadmin');
-          console.log('🌟 Super Admins existants:', superAdmins.length);
-          
-          if (superAdmins.length === 0 && existing.role === 'admin') {
-            updatedUser.role = 'superadmin';
-            console.log('🌟 Promotion automatique en Super Admin pour:', email);
-          }
-          
-          setUser(updatedUser);
-          setStep(updatedUser.displayName ? "month" : "pseudo");
+          setUser(existing);
+          setStep(existing.displayName ? "month" : "pseudo");
         } else {
-          // Nouvel utilisateur - déterminer le rôle
-          let role = 'user';
-          
-          // Vérifier s'il y a déjà des Super Admins
-          const superAdmins = users.filter(u => u.role === 'superadmin');
-          const admins = users.filter(u => u.role === 'admin');
-          
-          console.log('🔢 Nombre de Super Admins:', superAdmins.length);
-          console.log('🔢 Nombre d\'Admins:', admins.length);
-          
-          if (superAdmins.length === 0) {
-            role = 'superadmin'; // Premier utilisateur ou premier admin devient superadmin
-            console.log('🌟 Assignation Super Admin - aucun Super Admin existant');
-          } else if (admins.length === 0) {
-            role = 'admin'; // Deuxième utilisateur devient admin si pas d'admin existant
-            console.log('👑 Assignation Admin - aucun Admin existant');
-          }
-          
-          console.log('📝 Rôle assigné:', role);
-          setUser({ email, displayName: "", role: role });
+          setUser({ email, displayName: "", isAdmin: users.length === 0 });
           setStep("pseudo");
         }
       }
 
       async function handleSetPseudo(pseudo) {
-        console.log('📝 Définition du pseudo:', pseudo);
-        console.log('👤 Utilisateur actuel:', user);
-        
         const existing = users.find(u => u.email === user.email);
-        console.log('👤 Utilisateur existant dans la liste:', existing);
-        
-        // Conserver le rôle déjà déterminé lors de la connexion
-        let role = user.role;
-        console.log('📋 Rôle initial:', role);
-        
-        if (existing) {
-          // Si l'utilisateur existe déjà, garder son rôle existant
-          role = existing.role;
-          console.log('📋 Rôle existant conservé:', role);
-        } else {
-          // Nouvel utilisateur - vérifier s'il doit être promu
-          const superAdmins = users.filter(u => u.role === 'superadmin');
-          if (superAdmins.length === 0 && role !== 'superadmin') {
-            role = 'superadmin';
-            console.log('🌟 Promotion en Super Admin lors de la création');
-          }
-        }
-        
         const newUser = {
           ...user,
           displayName: pseudo,
-          role: role
+          isAdmin: existing ? existing.isAdmin : users.length === 0
         };
-        
-        console.log('💾 Nouvel utilisateur à sauvegarder:', newUser);
         setUser(newUser);
         
         let newUsers;
         if (existing) {
           newUsers = users.map(u => u.email === user.email ? newUser : u);
-          console.log('🔄 Mise à jour utilisateur existant');
         } else {
           newUsers = [...users, newUser];
-          console.log('➕ Ajout nouvel utilisateur');
         }
         
-        console.log('👥 Liste des utilisateurs mise à jour:', newUsers.map(u => ({ email: u.email, role: u.role })));
         setUsers(newUsers);
         
         // Sauvegarder sur le serveur
-        console.log('💾 Sauvegarde en cours...');
         const result = await saveUsers(newUsers);
         if (!result.success) {
-          console.error('❌ Erreur de sauvegarde:', result.message);
           alert('Erreur lors de la sauvegarde: ' + result.message);
-        } else {
-          console.log('✅ Sauvegarde réussie');
         }
         
         setStep("month");
@@ -1058,24 +952,9 @@
       }
 
       async function handleToggleAdmin(email) {
-        const newUsers = users.map(u => {
-          if (u.email === email) {
-            // Cycle: user -> admin -> superadmin -> user (seulement si superadmin)
-            let newRole = 'user';
-            if (u.role === 'user') newRole = 'admin';
-            else if (u.role === 'admin') {
-              // Seuls les superadmin peuvent promouvoir en superadmin
-              if (currentUser && currentUser.role === 'superadmin') {
-                newRole = 'superadmin';
-              } else {
-                newRole = 'user';
-              }
-            }
-            else if (u.role === 'superadmin') newRole = 'user';
-            return { ...u, role: newRole };
-          }
-          return u;
-        });
+        const newUsers = users.map(u => 
+          u.email === email ? { ...u, isAdmin: !u.isAdmin } : u
+        );
         setUsers(newUsers);
         
         // Sauvegarder sur le serveur
@@ -1119,46 +998,6 @@
         setStep("login");
         // Optionnel : supprimer le cookie lors de la déconnexion
         // deleteCookie('userEmail');
-      }
-
-      // Fonction pour forcer la promotion en Super Admin (pour debug)
-      async function forceSuperAdmin() {
-        if (user) {
-          const newUser = { ...user, role: 'superadmin' };
-          setUser(newUser);
-          
-          const newUsers = users.map(u => 
-            u.email === user.email ? newUser : u
-          );
-          setUsers(newUsers);
-          
-          const result = await saveUsers(newUsers);
-          if (result.success) {
-            alert('✅ Vous êtes maintenant Super Admin !');
-            console.log('🌟 Promotion forcée réussie');
-          } else {
-            alert('❌ Erreur lors de la promotion');
-            console.error('❌ Erreur promotion forcée:', result.message);
-          }
-        }
-      }
-
-      // Fonction pour réinitialiser complètement (pour debug)
-      async function resetAllUsers() {
-        if (confirm('⚠️ Voulez-vous vraiment supprimer TOUS les utilisateurs ? Cette action est irréversible !')) {
-          console.log('🗑️ Suppression de tous les utilisateurs...');
-          setUsers([]);
-          const result = await saveUsers([]);
-          if (result.success) {
-            alert('✅ Tous les utilisateurs ont été supprimés !');
-            console.log('🗑️ Réinitialisation réussie');
-            // Forcer le rechargement
-            window.location.reload();
-          } else {
-            alert('❌ Erreur lors de la suppression');
-            console.error('❌ Erreur suppression:', result.message);
-          }
-        }
       }
 
       // Écran de chargement
@@ -1225,9 +1064,7 @@
           year, month, days,
           onChange: (day, value) => setDays(prev => ({ ...prev, [day]: value })),
           onSave: handleSaveDays,
-          onBack: () => setStep("month"),
-          onPrevMonth: handlePrevMonth,
-          onNextMonth: handleNextMonth
+          onBack: () => setStep("month")
         });
       }
       if (step === "admin") {

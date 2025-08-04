@@ -185,10 +185,7 @@ app.get('/admin', async (req, res) => {
         ${data.users.map(user => `
           <div class="user">
             <strong>${user.displayName}</strong> 
-            <span class="admin">
-              ${user.role === 'superadmin' ? '🌟 Super Admin' : 
-                user.role === 'admin' ? '👑 Admin' : ''}
-            </span><br>
+            <span class="admin">${user.isAdmin ? '👑 Admin' : ''}</span><br>
             <small>${user.email}</small>
           </div>
         `).join('')}
