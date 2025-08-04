@@ -3,7 +3,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
-const { getAllData, saveUsers, saveAvailabilities, saveAllData, testConnection, ensureFirstUserIsSuperAdmin } = require('./supabase');
+const { getAllData, saveUsers, saveAvailabilities, saveAllData, testConnection, ensureFirstUserIsSuperAdmin, supabase } = require('./supabase');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -25,22 +25,34 @@ app.use(express.static('.', {
 // Fonction pour lire les données depuis Supabase
 async function readData() {
   try {
+    console.log('📖 Lecture des données depuis Supabase...');
     const data = await getAllData();
+    console.log('📊 Données récupérées - Utilisateurs:', data.users.length);
     
     // S'assurer qu'il y a un superadmin (le premier utilisateur)
     if (data.users && data.users.length > 0) {
+      console.log('🔍 Vérification du statut SuperAdmin...');
       const usersWithSuperAdmin = await ensureFirstUserIsSuperAdmin(data.users);
-      if (usersWithSuperAdmin !== data.users) {
+      
+      // Comparer les objets pour voir s'il y a eu des changements
+      const hasChanged = JSON.stringify(usersWithSuperAdmin) !== JSON.stringify(data.users);
+      
+      if (hasChanged) {
         // Si des modifications ont été apportées, sauvegarder
-        console.log('🔄 Mise à jour du statut superadmin...');
-        await saveUsers(usersWithSuperAdmin);
+        console.log('🔄 Mise à jour du statut superadmin détectée...');
+        const saveResult = await saveUsers(usersWithSuperAdmin);
+        console.log('💾 Résultat sauvegarde SuperAdmin:', saveResult);
         data.users = usersWithSuperAdmin;
+      } else {
+        console.log('✅ Aucune modification SuperAdmin nécessaire');
       }
+    } else {
+      console.log('👤 Aucun utilisateur trouvé');
     }
     
     return data;
   } catch (error) {
-    console.error('Erreur lors de la lecture des données:', error);
+    console.error('❌ Erreur lors de la lecture des données:', error);
     return { users: [], availabilities: {} };
   }
 }
@@ -95,6 +107,57 @@ app.get('/test-supabase', async (req, res) => {
   }
 });
 
+// Route de débogage pour forcer l'attribution SuperAdmin
+app.get('/debug-superadmin', async (req, res) => {
+  try {
+    console.log('🔍 Débogage SuperAdmin - Début');
+    const data = await getAllData();
+    console.log('📊 Utilisateurs actuels:', data.users);
+    
+    if (data.users.length === 0) {
+      return res.json({
+        status: 'INFO',
+        message: 'Aucun utilisateur trouvé',
+        users: data.users
+      });
+    }
+    
+    // Vérifier s'il y a déjà un superadmin
+    const hasSuperAdmin = data.users.some(user => user.isSuperAdmin);
+    console.log('👑 SuperAdmin existant:', hasSuperAdmin);
+    
+    if (!hasSuperAdmin) {
+      console.log('🔧 Attribution du SuperAdmin au premier utilisateur...');
+      const updatedUsers = await ensureFirstUserIsSuperAdmin(data.users);
+      console.log('✨ Utilisateurs après modification:', updatedUsers);
+      
+      const saveResult = await saveUsers(updatedUsers);
+      console.log('💾 Résultat sauvegarde:', saveResult);
+      
+      res.json({
+        status: 'SUCCESS',
+        message: 'SuperAdmin attribué',
+        before: data.users,
+        after: updatedUsers,
+        saveResult: saveResult
+      });
+    } else {
+      res.json({
+        status: 'INFO',
+        message: 'SuperAdmin déjà présent',
+        users: data.users
+      });
+    }
+  } catch (error) {
+    console.error('❌ Erreur lors du débogage SuperAdmin:', error);
+    res.status(500).json({
+      status: 'ERROR',
+      message: 'Erreur lors du débogage',
+      error: error.message
+    });
+  }
+});
+
 // GET - Récupérer toutes les données
 app.get('/api/data', async (req, res) => {
   try {
@@ -103,6 +166,47 @@ app.get('/api/data', async (req, res) => {
   } catch (error) {
     console.error('Erreur API /api/data:', error);
     res.status(500).json({ error: 'Erreur serveur interne' });
+  }
+});
+
+// Route de diagnostic pour voir les données brutes
+app.get('/debug-users', async (req, res) => {
+  try {
+    console.log('🔍 Récupération des données utilisateurs brutes...');
+    
+    // Récupérer directement depuis Supabase sans traitement
+    const { data: rawUsers, error } = await supabase
+      .from('users')
+      .select('*')
+      .order('created_at', { ascending: true });
+    
+    if (error) {
+      throw error;
+    }
+    
+    // Récupérer aussi via getAllData pour comparaison
+    const processedData = await getAllData();
+    
+    res.json({
+      status: 'SUCCESS',
+      rawUsers: rawUsers,
+      processedUsers: processedData.users,
+      timestamp: new Date().toISOString(),
+      summary: {
+        totalUsers: rawUsers.length,
+        superAdmins: rawUsers.filter(u => u.is_superadmin).length,
+        admins: rawUsers.filter(u => u.is_admin).length,
+        processedSuperAdmins: processedData.users.filter(u => u.isSuperAdmin).length,
+        processedAdmins: processedData.users.filter(u => u.isAdmin).length
+      }
+    });
+  } catch (error) {
+    console.error('❌ Erreur lors du diagnostic utilisateurs:', error);
+    res.status(500).json({
+      status: 'ERROR',
+      message: 'Erreur lors du diagnostic',
+      error: error.message
+    });
   }
 });
 

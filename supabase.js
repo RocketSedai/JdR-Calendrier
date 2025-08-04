@@ -251,27 +251,54 @@ async function saveAllData(users, availabilities) {
 // Fonction pour vérifier et attribuer le statut superadmin au premier utilisateur
 async function ensureFirstUserIsSuperAdmin(users) {
   try {
+    console.log('🔍 Vérification SuperAdmin - Utilisateurs reçus:', users.length);
+    console.log('📋 Détails utilisateurs:', users.map(u => ({ email: u.email, isAdmin: u.isAdmin, isSuperAdmin: u.isSuperAdmin })));
+    
     // Vérifier s'il y a déjà un superadmin
     const hasSuperAdmin = users.some(user => user.isSuperAdmin);
+    console.log('👑 SuperAdmin déjà présent:', hasSuperAdmin);
     
     if (!hasSuperAdmin && users.length > 0) {
       console.log('🔑 Aucun superadmin trouvé, attribution au premier utilisateur...');
       
-      // Trouver le premier utilisateur (par date de création ou premier dans la liste)
-      const firstUser = users[0];
-      const updatedUsers = users.map(user => 
-        user.email === firstUser.email 
-          ? { ...user, isSuperAdmin: true, isAdmin: true }
-          : user
-      );
+      // Pour déterminer le "premier" utilisateur, on va récupérer les données directement de Supabase
+      // avec l'ordre par date de création
+      const { data: orderedUsers, error } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: true })
+        .limit(1);
       
-      console.log(`👑 Attribution du statut superadmin à ${firstUser.email}`);
-      return updatedUsers;
+      if (error) {
+        console.error('❌ Erreur lors de la récupération du premier utilisateur:', error);
+        // Fallback : prendre le premier de la liste
+        const firstUser = users[0];
+        const updatedUsers = users.map(user => 
+          user.email === firstUser.email 
+            ? { ...user, isSuperAdmin: true, isAdmin: true }
+            : user
+        );
+        console.log(`👑 Attribution du statut superadmin à ${firstUser.email} (fallback)`);
+        return updatedUsers;
+      }
+      
+      if (orderedUsers && orderedUsers.length > 0) {
+        const firstUserEmail = orderedUsers[0].email;
+        const updatedUsers = users.map(user => 
+          user.email === firstUserEmail 
+            ? { ...user, isSuperAdmin: true, isAdmin: true }
+            : user
+        );
+        console.log(`👑 Attribution du statut superadmin à ${firstUserEmail} (premier chronologiquement)`);
+        console.log('✨ Utilisateurs mis à jour:', updatedUsers.map(u => ({ email: u.email, isAdmin: u.isAdmin, isSuperAdmin: u.isSuperAdmin })));
+        return updatedUsers;
+      }
     }
     
+    console.log('⭕ Aucune modification nécessaire');
     return users;
   } catch (error) {
-    console.error('Erreur lors de la vérification du superadmin:', error);
+    console.error('❌ Erreur lors de la vérification du superadmin:', error);
     return users;
   }
 }
