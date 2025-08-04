@@ -8,6 +8,12 @@ const supabaseKey = process.env.SUPABASE_ANON_KEY;
 if (!supabaseUrl || !supabaseKey) {
   console.error('❌ Variables d\'environnement Supabase manquantes');
   console.error('SUPABASE_URL et SUPABASE_ANON_KEY doivent être définies');
+  console.error('📋 Guide de configuration :');
+  console.error('1. Allez sur https://supabase.com → votre projet');
+  console.error('2. Settings → API');
+  console.error('3. Copiez "Project URL" dans SUPABASE_URL');
+  console.error('4. Copiez "anon public" dans SUPABASE_ANON_KEY');
+  console.error('5. Configurez ces variables dans Render Dashboard → Environment');
   process.exit(1);
 }
 
@@ -21,6 +27,12 @@ async function testConnection() {
     console.log('URL:', supabaseUrl);
     console.log('Clé (premiers caractères):', supabaseKey ? supabaseKey.substring(0, 20) + '...' : 'Non définie');
     
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('❌ Variables d\'environnement manquantes');
+      return false;
+    }
+    
+    // Test avec une requête simple
     const { data, error } = await supabase
       .from('users')
       .select('count')
@@ -28,13 +40,21 @@ async function testConnection() {
     
     if (error) {
       console.error('❌ Erreur de connexion Supabase:', error);
+      console.error('Détails de l\'erreur:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
       return false;
     }
     
     console.log('✅ Connexion Supabase réussie');
+    console.log('📊 Test de lecture des tables réussi');
     return true;
   } catch (error) {
     console.error('❌ Erreur lors du test de connexion:', error);
+    console.error('Stack trace:', error.stack);
     return false;
   }
 }
@@ -69,46 +89,46 @@ async function getUsers() {
 
 async function saveUsers(users) {
   try {
-    console.log('Sauvegarde des utilisateurs:', users);
+    console.log('💾 Sauvegarde sécurisée des utilisateurs:', users);
     
-    // Supprimer tous les utilisateurs existants
-    const { error: deleteError } = await supabase
+    if (users.length === 0) {
+      console.log('Aucun utilisateur à sauvegarder');
+      return true;
+    }
+    
+    // Transformer les données pour correspondre au schéma Supabase
+    const usersToSave = users.map(user => ({
+      email: user.email,
+      display_name: user.displayName,
+      is_admin: user.isAdmin
+    }));
+    
+    console.log('📤 Données à sauvegarder:', usersToSave);
+    
+    // Utiliser UPSERT sécurisé avec ON CONFLICT
+    const { data, error } = await supabase
       .from('users')
-      .delete()
-      .neq('id', 0); // Supprime tous les enregistrements
+      .upsert(usersToSave, { 
+        onConflict: 'email',
+        ignoreDuplicates: false 
+      })
+      .select();
     
-    if (deleteError) {
-      console.error('Erreur lors de la suppression des utilisateurs:', deleteError);
+    if (error) {
+      console.error('❌ Erreur lors de la sauvegarde des utilisateurs:', error);
+      console.error('Détails de l\'erreur:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
       return false;
     }
     
-    // Insérer les nouveaux utilisateurs
-    if (users.length > 0) {
-      // Transformer les données pour correspondre au schéma Supabase
-      const usersToInsert = users.map(user => ({
-        email: user.email,
-        display_name: user.displayName, // Notez le underscore
-        is_admin: user.isAdmin // Notez le underscore
-      }));
-      
-      console.log('Données à insérer:', usersToInsert);
-      
-      const { data, error: insertError } = await supabase
-        .from('users')
-        .insert(usersToInsert)
-        .select();
-      
-      if (insertError) {
-        console.error('Erreur lors de l\'insertion des utilisateurs:', insertError);
-        return false;
-      }
-      
-      console.log('Utilisateurs insérés avec succès:', data);
-    }
-    
+    console.log('✅ Utilisateurs sauvegardés avec succès:', data);
     return true;
   } catch (error) {
-    console.error('Erreur lors de la sauvegarde des utilisateurs:', error);
+    console.error('❌ Erreur critique lors de la sauvegarde des utilisateurs:', error);
     return false;
   }
 }
@@ -141,18 +161,9 @@ async function getAvailabilities() {
 
 async function saveAvailabilities(availabilities) {
   try {
-    // Supprimer toutes les disponibilités existantes
-    const { error: deleteError } = await supabase
-      .from('availabilities')
-      .delete()
-      .neq('id', 0);
+    console.log('💾 Sauvegarde sécurisée des disponibilités:', Object.keys(availabilities));
     
-    if (deleteError) {
-      console.error('Erreur lors de la suppression des disponibilités:', deleteError);
-      return false;
-    }
-    
-    // Préparer les données pour l'insertion
+    // Préparer les données pour l'upsert
     const availabilityRecords = [];
     Object.entries(availabilities).forEach(([key, availabilityData]) => {
       const [userEmail, year, month] = key.split('_');
@@ -164,21 +175,37 @@ async function saveAvailabilities(availabilities) {
       });
     });
     
-    // Insérer les nouvelles disponibilités
-    if (availabilityRecords.length > 0) {
-      const { error: insertError } = await supabase
-        .from('availabilities')
-        .insert(availabilityRecords);
-      
-      if (insertError) {
-        console.error('Erreur lors de l\'insertion des disponibilités:', insertError);
-        return false;
-      }
+    if (availabilityRecords.length === 0) {
+      console.log('Aucune disponibilité à sauvegarder');
+      return true;
     }
     
+    console.log('📤 Données de disponibilités à sauvegarder:', availabilityRecords);
+    
+    // Utiliser UPSERT sécurisé avec ON CONFLICT
+    const { data, error } = await supabase
+      .from('availabilities')
+      .upsert(availabilityRecords, { 
+        onConflict: 'user_email,year,month',
+        ignoreDuplicates: false 
+      })
+      .select();
+    
+    if (error) {
+      console.error('❌ Erreur lors de la sauvegarde des disponibilités:', error);
+      console.error('Détails de l\'erreur:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+      return false;
+    }
+    
+    console.log('✅ Disponibilités sauvegardées avec succès:', data);
     return true;
   } catch (error) {
-    console.error('Erreur lors de la sauvegarde des disponibilités:', error);
+    console.error('❌ Erreur critique lors de la sauvegarde des disponibilités:', error);
     return false;
   }
 }
