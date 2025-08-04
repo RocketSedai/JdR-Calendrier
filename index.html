@@ -259,6 +259,45 @@
       border-bottom: 2px solid #667eea;
     }
     
+    .month-navigation {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    
+    .month-navigation h3 {
+      margin: 0;
+      flex-grow: 1;
+      text-align: center;
+    }
+    
+    .nav-button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      font-size: 1.2rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      min-width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .nav-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+    
+    .nav-button:active {
+      transform: translateY(0);
+    }
+    
     .status-available { color: #38a169; }
     .status-maybe { color: #d69e2e; }
     .status-unavailable { color: #e53e3e; }
@@ -676,13 +715,25 @@
       { value: "unavailable", label: "❌", text: "Indisponible" },
     ];
 
-    function Calendar({ year, month, days, onChange, onSave, onBack }) {
+    function Calendar({ year, month, days, onChange, onSave, onBack, onPrevMonth, onNextMonth }) {
       const firstDay = new Date(year, month, 1).getDay();
       const nbDays = getDaysInMonth(year, month);
       const offset = (firstDay + 6) % 7;
 
       return React.createElement("div", { className: "container" },
-        React.createElement("h3", null, "📅 Disponibilités pour ", MONTHS[month], " ", year),
+        React.createElement("div", { className: "month-navigation" },
+          React.createElement("button", { 
+            className: "nav-button", 
+            onClick: onPrevMonth,
+            title: "Mois précédent"
+          }, "‹"),
+          React.createElement("h3", null, "📅 Disponibilités pour ", MONTHS[month], " ", year),
+          React.createElement("button", { 
+            className: "nav-button", 
+            onClick: onNextMonth,
+            title: "Mois suivant"
+          }, "›")
+        ),
         React.createElement("div", { className: "calendar-container" },
           React.createElement("table", { className: "calendar-table" },
             React.createElement("thead", null,
@@ -739,7 +790,7 @@
       );
     }
 
-    function AdminView({ year, month, users, availabilities, onBack }) {
+    function AdminView({ year, month, users, availabilities, onBack, onPrevMonth, onNextMonth }) {
       const nbDays = getDaysInMonth(year, month);
       const dayNames = ["Di", "Lu", "Ma", "Me", "Je", "Ve", "Sa"];
       
@@ -750,7 +801,19 @@
       }
       
       return React.createElement("div", { className: "container" },
-        React.createElement("h3", null, "👤 Vue admin - ", MONTHS[month], " ", year, " 🔄 [NOUVELLE VERSION]"),
+        React.createElement("div", { className: "month-navigation" },
+          React.createElement("button", { 
+            className: "nav-button", 
+            onClick: onPrevMonth,
+            title: "Mois précédent"
+          }, "‹"),
+          React.createElement("h3", null, "👤 Vue admin - ", MONTHS[month], " ", year),
+          React.createElement("button", { 
+            className: "nav-button", 
+            onClick: onNextMonth,
+            title: "Mois suivant"
+          }, "›")
+        ),
         React.createElement("div", { className: "admin-table-container" },
           React.createElement("table", { className: "admin-table" },
             React.createElement("thead", null,
@@ -987,6 +1050,51 @@
         }
       }
 
+      // Fonctions de navigation avec rechargement des données pour les vues calendrier/admin
+      function handlePrevMonthWithReload() {
+        let newMonth = month;
+        let newYear = year;
+        
+        if (month === 0) {
+          newMonth = 11;
+          newYear = year - 1;
+        } else {
+          newMonth = month - 1;
+        }
+        
+        // Mettre à jour les états
+        setMonth(newMonth);
+        setYear(newYear);
+        
+        // Recharger les données si on est dans la vue calendrier
+        if (step === "calendar") {
+          const key = user.email + "_" + newYear + "_" + newMonth;
+          setDays(availabilities[key] || {});
+        }
+      }
+
+      function handleNextMonthWithReload() {
+        let newMonth = month;
+        let newYear = year;
+        
+        if (month === 11) {
+          newMonth = 0;
+          newYear = year + 1;
+        } else {
+          newMonth = month + 1;
+        }
+        
+        // Mettre à jour les états
+        setMonth(newMonth);
+        setYear(newYear);
+        
+        // Recharger les données si on est dans la vue calendrier
+        if (step === "calendar") {
+          const key = user.email + "_" + newYear + "_" + newMonth;
+          setDays(availabilities[key] || {});
+        }
+      }
+
       function handleShowCalendar() {
         const key = user.email + "_" + year + "_" + month;
         setDays(availabilities[key] || {});
@@ -1162,7 +1270,9 @@
           year, month, days,
           onChange: (day, value) => setDays(prev => ({ ...prev, [day]: value })),
           onSave: handleSaveDays,
-          onBack: () => setStep("month")
+          onBack: () => setStep("month"),
+          onPrevMonth: handlePrevMonthWithReload,
+          onNextMonth: handleNextMonthWithReload
         });
       }
       if (step === "admin") {
@@ -1170,7 +1280,9 @@
           year, month,
           users,
           availabilities: getAllAvailabilitiesForMonth(),
-          onBack: () => setStep("month")
+          onBack: () => setStep("month"),
+          onPrevMonth: handlePrevMonth,
+          onNextMonth: handleNextMonth
         });
       }
       if (step === "users") {
