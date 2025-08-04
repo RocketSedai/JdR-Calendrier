@@ -76,7 +76,8 @@ async function getUsers() {
     const users = (data || []).map(user => ({
       email: user.email,
       displayName: user.display_name, // Conversion du snake_case vers camelCase
-      isAdmin: user.is_admin // Conversion du snake_case vers camelCase
+      isAdmin: user.is_admin, // Conversion du snake_case vers camelCase
+      isSuperAdmin: user.is_superadmin // Conversion du snake_case vers camelCase
     }));
     
     console.log('Utilisateurs récupérés:', users);
@@ -100,7 +101,8 @@ async function saveUsers(users) {
     const usersToSave = users.map(user => ({
       email: user.email,
       display_name: user.displayName,
-      is_admin: user.isAdmin
+      is_admin: user.isAdmin,
+      is_superadmin: user.isSuperAdmin || false
     }));
     
     console.log('📤 Données à sauvegarder:', usersToSave);
@@ -246,6 +248,34 @@ async function saveAllData(users, availabilities) {
   }
 }
 
+// Fonction pour vérifier et attribuer le statut superadmin au premier utilisateur
+async function ensureFirstUserIsSuperAdmin(users) {
+  try {
+    // Vérifier s'il y a déjà un superadmin
+    const hasSuperAdmin = users.some(user => user.isSuperAdmin);
+    
+    if (!hasSuperAdmin && users.length > 0) {
+      console.log('🔑 Aucun superadmin trouvé, attribution au premier utilisateur...');
+      
+      // Trouver le premier utilisateur (par date de création ou premier dans la liste)
+      const firstUser = users[0];
+      const updatedUsers = users.map(user => 
+        user.email === firstUser.email 
+          ? { ...user, isSuperAdmin: true, isAdmin: true }
+          : user
+      );
+      
+      console.log(`👑 Attribution du statut superadmin à ${firstUser.email}`);
+      return updatedUsers;
+    }
+    
+    return users;
+  } catch (error) {
+    console.error('Erreur lors de la vérification du superadmin:', error);
+    return users;
+  }
+}
+
 module.exports = {
   supabase,
   testConnection,
@@ -254,5 +284,6 @@ module.exports = {
   getAvailabilities,
   saveAvailabilities,
   getAllData,
-  saveAllData
+  saveAllData,
+  ensureFirstUserIsSuperAdmin
 }; 

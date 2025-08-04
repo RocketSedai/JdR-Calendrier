@@ -781,6 +781,22 @@
 
       return React.createElement("div", { className: "container" },
         React.createElement("h3", null, "⚙️ Gestion des utilisateurs"),
+        React.createElement("div", { 
+          style: { 
+            background: "#f7fafc", 
+            border: "1px solid #e2e8f0", 
+            borderRadius: "8px", 
+            padding: "1rem", 
+            marginBottom: "1rem",
+            fontSize: "0.9rem",
+            color: "#4a5568"
+          } 
+        },
+          React.createElement("div", { style: { fontWeight: "bold", marginBottom: "0.5rem" } }, "🔱 Système de droits :"),
+          React.createElement("div", null, "• Super Admin : Droits complets, ne peut être supprimé ou démis"),
+          React.createElement("div", null, "• Admin : Peut gérer les utilisateurs normaux"),
+          React.createElement("div", null, "• Le premier utilisateur du site devient automatiquement Super Admin")
+        ),
         React.createElement("div", { className: "admin-panel" },
           React.createElement("h4", null, "Liste des participants"),
           React.createElement("div", { className: "user-list" },
@@ -789,17 +805,21 @@
                 React.createElement("div", { className: "user-info" },
                   React.createElement("div", null, user.displayName),
                   React.createElement("div", { className: "user-email" }, user.email),
-                  user.isAdmin && React.createElement("div", { style: { color: "#38a169", fontSize: "0.8rem" } }, "👑 Admin")
+                  user.isSuperAdmin && React.createElement("div", { style: { color: "#d63031", fontSize: "0.8rem", fontWeight: "bold" } }, "🔱 Super Admin"),
+                  user.isAdmin && !user.isSuperAdmin && React.createElement("div", { style: { color: "#38a169", fontSize: "0.8rem" } }, "👑 Admin")
                 ),
                 React.createElement("div", { className: "user-actions" },
-                  user.email !== currentUser.email && React.createElement("button", {
+                  user.email !== currentUser.email && !user.isSuperAdmin && React.createElement("button", {
                     onClick: () => onToggleAdmin(user.email),
                     className: user.isAdmin ? "danger-button" : "admin-button"
                   }, user.isAdmin ? "Retirer admin" : "Rendre admin"),
-                  user.email !== currentUser.email && React.createElement("button", {
+                  user.email !== currentUser.email && !user.isSuperAdmin && React.createElement("button", {
                     onClick: () => handleDeleteUser(user),
                     className: "danger-button"
-                  }, deleteConfirm === user.email ? "Confirmer suppression" : "Supprimer")
+                  }, deleteConfirm === user.email ? "Confirmer suppression" : "Supprimer"),
+                  user.isSuperAdmin && user.email !== currentUser.email && React.createElement("div", { 
+                    style: { fontSize: "0.7rem", color: "#666", fontStyle: "italic" } 
+                  }, "🛡️ Protégé")
                 )
               )
             )
@@ -839,7 +859,8 @@
 
       // Récupérer les informations à jour de l'utilisateur courant
       const currentUser = user ? users.find(u => u.email === user.email) || user : null;
-      const isAdmin = currentUser && currentUser.isAdmin;
+      const isSuperAdmin = currentUser && currentUser.isSuperAdmin;
+      const isAdmin = currentUser && (currentUser.isAdmin || currentUser.isSuperAdmin);
 
       // Charger les données au démarrage
       React.useEffect(() => {
@@ -866,17 +887,25 @@
           setUser(existing);
           setStep(existing.displayName ? "month" : "pseudo");
         } else {
-          setUser({ email, displayName: "", isAdmin: users.length === 0 });
+          const isFirstUser = users.length === 0;
+          setUser({ 
+            email, 
+            displayName: "", 
+            isAdmin: isFirstUser,
+            isSuperAdmin: isFirstUser
+          });
           setStep("pseudo");
         }
       }
 
       async function handleSetPseudo(pseudo) {
         const existing = users.find(u => u.email === user.email);
+        const isFirstUser = users.length === 0;
         const newUser = {
           ...user,
           displayName: pseudo,
-          isAdmin: existing ? existing.isAdmin : users.length === 0
+          isAdmin: existing ? existing.isAdmin : isFirstUser,
+          isSuperAdmin: existing ? existing.isSuperAdmin : isFirstUser
         };
         setUser(newUser);
         
@@ -952,6 +981,19 @@
       }
 
       async function handleToggleAdmin(email) {
+        const targetUser = users.find(u => u.email === email);
+        
+        // Vérifier les permissions
+        if (targetUser.isSuperAdmin && !isSuperAdmin) {
+          alert('🚫 Seuls les Super Admins peuvent modifier les droits d\'autres Super Admins');
+          return;
+        }
+        
+        if (targetUser.isSuperAdmin) {
+          alert('🔱 Impossible de retirer les droits d\'admin à un Super Admin');
+          return;
+        }
+        
         const newUsers = users.map(u => 
           u.email === email ? { ...u, isAdmin: !u.isAdmin } : u
         );
@@ -965,6 +1007,19 @@
       }
 
       async function handleDeleteUser(email) {
+        const targetUser = users.find(u => u.email === email);
+        
+        // Vérifier les permissions
+        if (targetUser.isSuperAdmin && !isSuperAdmin) {
+          alert('🚫 Seuls les Super Admins peuvent supprimer d\'autres Super Admins');
+          return;
+        }
+        
+        if (targetUser.isSuperAdmin) {
+          alert('🔱 Impossible de supprimer un Super Admin');
+          return;
+        }
+        
         const newUsers = users.filter(u => u.email !== email);
         setUsers(newUsers);
         

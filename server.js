@@ -3,7 +3,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
-const { getAllData, saveUsers, saveAvailabilities, saveAllData, testConnection } = require('./supabase');
+const { getAllData, saveUsers, saveAvailabilities, saveAllData, testConnection, ensureFirstUserIsSuperAdmin } = require('./supabase');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -26,6 +26,18 @@ app.use(express.static('.', {
 async function readData() {
   try {
     const data = await getAllData();
+    
+    // S'assurer qu'il y a un superadmin (le premier utilisateur)
+    if (data.users && data.users.length > 0) {
+      const usersWithSuperAdmin = await ensureFirstUserIsSuperAdmin(data.users);
+      if (usersWithSuperAdmin !== data.users) {
+        // Si des modifications ont été apportées, sauvegarder
+        console.log('🔄 Mise à jour du statut superadmin...');
+        await saveUsers(usersWithSuperAdmin);
+        data.users = usersWithSuperAdmin;
+      }
+    }
+    
     return data;
   } catch (error) {
     console.error('Erreur lors de la lecture des données:', error);
@@ -186,7 +198,7 @@ app.get('/admin', async (req, res) => {
         ${data.users.map(user => `
           <div class="user">
             <strong>${user.displayName}</strong> 
-            <span class="admin">${user.isAdmin ? '👑 Admin' : ''}</span><br>
+            <span class="admin">${user.isSuperAdmin ? '🔱 Super Admin' : user.isAdmin ? '👑 Admin' : ''}</span><br>
             <small>${user.email}</small>
           </div>
         `).join('')}
